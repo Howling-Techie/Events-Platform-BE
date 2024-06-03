@@ -23,3 +23,31 @@ exports.refreshToken = (token) => {
 
     return token;
 };
+
+exports.checkIfExists = async (tableName, columnName, value) => {
+    if (Number.isNaN(value)) {
+        const query = format("SELECT %I FROM %I WHERE %I like %L", columnName, tableName, columnName, +value);
+        return (await client.query(query)).rows.length > 0;
+    }
+    const query = format("SELECT %I FROM %I WHERE %I = %L", columnName, tableName, columnName, value.toString());
+    return (await client.query(query)).rows.length > 0;
+};
+
+exports.canUserAccessEvent = async (event_id, user_id) => {
+    // Check if the user can access the given event
+    const result = await client.query(
+        `SELECT e.*
+         FROM events e
+                  LEFT JOIN groups g ON e.group_id = g.id
+                  LEFT JOIN user_groups ug ON ug.group_id = g.id AND ug.user_id = $1
+         WHERE (
+             (e.visibility = 0 AND g.visibility = 0)
+                 OR
+             (ug.user_id = $1 AND e.visibility <= ug.access_level)
+             )
+           AND e.event_id = $2`,
+        [user_id, event_id]
+    );
+    // If a row is returned, they have access
+    return result.rows.length > 0;
+};

@@ -34,7 +34,10 @@ eventsRouter
 eventsRouter
     .route("/:event_id/users")
     .get(getUsers)
-    .post(postUser)
+    .post(postUser);
+
+eventsRouter
+    .route("/:event_id/users/:user_id")
     .patch(patchUser)
     .delete(deleteUser);
 

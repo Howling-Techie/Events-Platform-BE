@@ -8,6 +8,15 @@ var indexRouter = require("./routes/index");
 var usersRouter = require("./routes/users");
 
 var app = express();
+const apiRouter = require("./routes/api.router");
+const bodyParser = require("body-parser");
+const cors = require("cors");
+require("dotenv").config();
+
+app.use(cors());
+app.use(bodyParser.json());
+
+app.use(process.env.PATH_URL + "/api", apiRouter);
 
 // view engine setup
 app.set("views", path.join(__dirname, "views"));
@@ -28,6 +37,7 @@ app.use(function (req, res, next) {
 });
 
 // error handler
+<<<<<<< database
 app.use((err, req, res, next) => {
     if (err.status && err.msg) {
         res.status(err.status).send({msg: err.msg});
@@ -35,6 +45,16 @@ app.use((err, req, res, next) => {
         console.log(err);
         res.status(500).send({msg: "Internal Server Error"});
     }
+=======
+app.use(function (err, req, res, next) {
+    // set locals, only providing error in development
+    res.locals.message = err.message;
+    res.locals.error = req.app.get("env") === "development" ? err : {};
+
+    // render the error page
+    res.status(err.status || 500);
+    res.render("error");
+>>>>>>> main
 });
 
 module.exports = app;

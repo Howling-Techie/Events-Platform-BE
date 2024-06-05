@@ -2,8 +2,26 @@ const client = require("../database/connection");
 const jwt = require("jsonwebtoken");
 const {checkIfExists, generateUserToken} = require("./utils.model");
 const {hash} = require("bcrypt");
-exports.selectUsers = async (queries, headers) => {
 
+exports.selectUsers = async (queries, headers) => {
+    const {username, displayName} = queries;
+    const token = headers["authorization"];
+    if (token) {
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_KEY);
+            const userResult = await client.query(`SELECT username, display_name, avatar, about
+                                                   FROM users`, []);
+            return userResult.rows;
+        } catch {
+            const userResult = await client.query(`SELECT username, display_name, avatar, about
+                                                   FROM users`, []);
+            return userResult.rows;
+        }
+    } else {
+        const userResult = await client.query(`SELECT username, display_name, avatar, about
+                                               FROM users`, []);
+        return userResult.rows;
+    }
 };
 
 exports.selectUser = async (params, headers) => {
@@ -132,33 +150,26 @@ exports.selectUserGroups = async (params, headers) => {
         try {
             const decoded = jwt.verify(token, process.env.JWT_KEY);
             const user_id = decoded.user_id;
-            const results = await client.query(`SELECT e.*
-                                                FROM events e
-                                                         LEFT JOIN groups g ON e.group_id = g.id
+            const results = await client.query(`SELECT g.*
+                                                FROM groups g
                                                          INNER JOIN user_groups ug1 ON ug1.group_id = g.id AND ug1.user_id = $1
                                                          LEFT JOIN user_groups ug2 ON ug2.group_id = g.id AND ug2.user_id = $2
                                                 WHERE (
-                                                          (e.visibility = 0 AND g.visibility = 0)
+                                                          (g.visibility = 0)
                                                               OR
-                                                          (ug2.user_id = $1 AND e.visibility <= ug2.access_level)
-                                                          );`, [params.user_id]);
+                                                          (ug2.user_id = $2)
+                                                          );`, [params.user_id, user_id]);
             return results.rows;
         } catch {
             return Promise.reject({status: 401, msg: "Unauthorised"});
         }
     } else {
-        const eventResults = await client.query(`SELECT e.*
-                                                 FROM events e
-                                                          LEFT JOIN groups g ON e.group_id = g.id
-                                                 WHERE e.visibility = 0
-                                                   AND g.visibility = 0`);
-        const events = eventResults.rows;
-        for (const event of events) {
-            const groupResult = await client.query(`SELECT *
-                                                    FROM groups
-                                                    WHERE id = $1`, [event.group_id]);
-            event.group = groupResult.rows[0];
-        }
-        return events;
+        const results = await client.query(`SELECT g.*
+                                            FROM groups g
+                                                     INNER JOIN user_groups ug1 ON ug1.group_id = g.id AND ug1.user_id = $1
+                                            WHERE (
+                                                      (g.visibility = 0)
+                                                      );`, [params.user_id]);
+        return results.rows;
     }
 };

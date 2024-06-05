@@ -19,7 +19,7 @@ async function seed(data) {
 
 async function dropTables() {
     // Drop tables in reverse order to avoid foreign key constraints
-    await client.query("DROP TABLE IF EXISTS event_comments;");
+    await client.query("DROP TABLE IF EXISTS comments;");
     await client.query("DROP TABLE IF EXISTS event_users;");
     await client.query("DROP TABLE IF EXISTS events;");
     await client.query("DROP TABLE IF EXISTS user_groups;");
@@ -34,9 +34,9 @@ async function createTables() {
         CREATE TABLE IF NOT EXISTS users
         (
             id           SERIAL PRIMARY KEY,
-            username     VARCHAR(255) NOT NULL,
+            username     VARCHAR(255) NOT NULL UNIQUE,
             display_name VARCHAR(255),
-            email        VARCHAR(255),
+            email        VARCHAR(255) UNIQUE,
             avatar       VARCHAR(255),
             password     VARCHAR(255),
             about        TEXT
@@ -71,8 +71,9 @@ async function createTables() {
     await client.query(`
         CREATE TABLE IF NOT EXISTS user_groups
         (
-            user_id  INTEGER REFERENCES users (id)  NOT NULL,
-            group_id INTEGER REFERENCES groups (id) NOT NULL,
+            user_id      INTEGER REFERENCES users (id)  NOT NULL,
+            group_id     INTEGER REFERENCES groups (id) NOT NULL,
+            access_level INTEGER DEFAULT 1              NOT NULL,
             PRIMARY KEY (user_id, group_id)
         );
     `);
@@ -124,7 +125,7 @@ async function insertData(data) {
     await insertDataIntoTable("user_groups", data.userGroups);
     await insertDataIntoTable("events", data.events);
     await insertDataIntoTable("event_users", data.eventUsers);
-    await insertDataIntoTable("event_comments", data.eventComments);
+    await insertDataIntoTable("comments", data.eventComments);
 }
 
 async function insertDataIntoTable(tableName, dataArray) {

@@ -1,9 +1,10 @@
 const client = require("../database/connection");
 const jwt = require("jsonwebtoken");
-const {checkIfExists, canUserAccessEvent} = require("./utils.model");
+const {checkIfExists, checkUserCanAccessEvent} = require("./utils.model");
 
 exports.selectEvents = async (queries, headers) => {
     const token = headers["authorization"];
+    // If a token is provided, include events the user would have access to
     if (token) {
         try {
             const decoded = jwt.verify(token, process.env.JWT_KEY);
@@ -22,6 +23,7 @@ exports.selectEvents = async (queries, headers) => {
             return Promise.reject({status: 401, msg: "Unauthorised"});
         }
     } else {
+        // Otherwise just return public events
         const eventResults = await client.query(`SELECT e.*
                                                  FROM events e
                                                           LEFT JOIN groups g ON e.group_id = g.id
@@ -39,13 +41,14 @@ exports.selectEvents = async (queries, headers) => {
 };
 
 exports.selectEvent = async (params, headers) => {
-    const {event_id} = params;
+    const eventId = params.event_id;
     const token = headers["authorization"];
-    await checkEventIsAccessible(event_id, token);
+    await eventChecklist(eventId, token);
 
+    // Select the event
     const eventResult = await client.query(`SELECT *
                                             FROM events
-                                            WHERE id = $1`, [event_id]);
+                                            WHERE id = $1`, [eventId]);
     const event = eventResult.rows[0];
     const groupResult = await client.query(`SELECT *
                                             FROM groups
@@ -87,107 +90,81 @@ exports.insertEvent = async (body, headers) => {
 };
 
 exports.updateEvent = async (params, body, headers) => {
+    const eventId = params.event_id;
     const token = headers["authorization"];
-    if (token) {
-        try {
-            const decoded = jwt.verify(token, process.env.JWT_KEY);
-            const userId = decoded.user_id;
+    const userId = await eventChecklist(eventId, token);
 
-            // Ensure the user is the creator of the event
-            const eventId = params.id;
-            const checkQuery = `
-                SELECT created_by
-                FROM events
-                WHERE id = $1;
-            `;
-            const checkRes = await client.query(checkQuery, [eventId]);
-            if (checkRes.rows.length === 0) {
-                return Promise.reject({status: 404, msg: "Event Not Found"});
-            }
-            if (checkRes.rows[0].created_by !== userId) {
-                return Promise.reject({status: 401, msg: "Unauthorised"});
-            }
-
-            // Update event in the database
-            const updateQuery = `
-                UPDATE events
-                SET visibility  = $1,
-                    start_time  = $2,
-                    title       = $3,
-                    description = $4
-                WHERE id = $5
-                RETURNING *;
-            `;
-            const values = [
-                body.visibility,
-                body.start_time,
-                body.title,
-                body.description,
-                eventId
-            ];
-
-            const res = await client.query(updateQuery, values);
-            return res.rows[0];
-        } catch {
-            return Promise.reject({status: 401, msg: "Unauthorised"});
-        }
-    } else {
+    // Ensure the user is the creator of the event
+    const checkQuery = `
+        SELECT created_by
+        FROM events
+        WHERE id = $1;
+    `;
+    const checkRes = await client.query(checkQuery, [eventId]);
+    if (checkRes.rows[0].created_by !== userId) {
         return Promise.reject({status: 401, msg: "Unauthorised"});
     }
+
+    // Update event in the database
+    const updateQuery = `
+        UPDATE events
+        SET visibility  = $1,
+            start_time  = $2,
+            title       = $3,
+            description = $4
+        WHERE id = $5
+        RETURNING *;
+    `;
+    const values = [
+        body.visibility,
+        body.start_time,
+        body.title,
+        body.description,
+        eventId
+    ];
+
+    const res = await client.query(updateQuery, values);
+    return res.rows[0];
 };
 
 exports.deleteEvent = async (params, headers) => {
+    const eventId = params.event_id;
     const token = headers["authorization"];
-    if (token) {
-        try {
-            const decoded = jwt.verify(token, process.env.JWT_KEY);
-            const userId = decoded.user_id;
-
-            // Ensure the user is the creator of the event
-            const eventId = params.id;
-            const checkQuery = `
-                SELECT created_by
-                FROM events
-                WHERE id = $1;
-            `;
-            const checkRes = await client.query(checkQuery, [eventId]);
-            if (checkRes.rows.length === 0) {
-                return Promise.reject({status: 404, msg: "Event Not Found"});
-            }
-            if (checkRes.rows[0].created_by !== userId) {
-                return Promise.reject({status: 401, msg: "Unauthorised"});
-            }
-            // Delete event from the database
-            const res = await client.query(`
-                DELETE
-                FROM events
-                WHERE id = $1;
-            `, [eventId]);
-        } catch {
-            return Promise.reject({status: 401, msg: "Unauthorised"});
-        }
-    } else {
+    const userId = await eventChecklist(eventId, token);
+    if (userId === undefined) {
         return Promise.reject({status: 401, msg: "Unauthorised"});
     }
+
+    // Ensure the user is the creator of the event
+    const checkQuery = `
+        SELECT created_by
+        FROM events
+        WHERE id = $1;
+    `;
+    const checkRes = await client.query(checkQuery, [eventId]);
+    if (checkRes.rows[0].created_by !== userId) {
+        return Promise.reject({status: 401, msg: "Unauthorised"});
+    }
+    // Delete event from the database
+    await client.query(`
+        DELETE
+        FROM events
+        WHERE id = $1;
+    `, [eventId]);
 };
 
 exports.selectEventComments = async (params, headers) => {
     const eventId = params.event_id;
     const token = headers["authorization"];
-
-    // Check if user has access to the event
-    const accessible = await checkEventIsAccessible(eventId, token);
-    if (!accessible) {
-        return Promise.reject({status: 401, msg: "Unauthorised"});
-    }
+    await eventChecklist(eventId, token);
 
     // Select comments for the event
     const query = `
-        SELECT c.id, c.event_id, c.user_id, c.comment, c.time_created, u.username
+        SELECT c.id, c.event_id, c.user_id, c.comment, c.time_submitted, u.username
         FROM comments c
                  JOIN users u ON c.user_id = u.id
         WHERE c.event_id = $1
-        ORDER BY c.time_created ASC;
+        ORDER BY c.time_submitted;
     `;
     const res = await client.query(query, [eventId]);
     return res.rows;
@@ -196,14 +173,7 @@ exports.selectEventComments = async (params, headers) => {
 exports.insertEventComment = async (params, body, headers) => {
     const eventId = params.event_id;
     const token = headers["authorization"];
-    const decoded = jwt.verify(token, process.env.JWT_KEY);
-    const userId = decoded.user_id;
-
-    // Check if user has access to the event
-    const accessible = await checkEventIsAccessible(eventId, token);
-    if (!accessible) {
-        return Promise.reject({status: 401, msg: "Unauthorised"});
-    }
+    const userId = await eventChecklist(eventId, token);
 
     // Insert comment into the database
     const query = `
@@ -211,17 +181,16 @@ exports.insertEventComment = async (params, body, headers) => {
         VALUES ($1, $2, $3)
         RETURNING *;
     `;
-    const values = [eventId, userId, body.comment];
 
-    const res = await client.query(query, values);
+    const res = await client.query(query, [eventId, userId, body.comment]);
     return res.rows[0];
 };
 
 exports.deleteEventComment = async (params, headers) => {
     const commentId = params.comment_id;
+    const eventId = params.event_id;
     const token = headers["authorization"];
-    const decoded = jwt.verify(token, process.env.JWT_KEY);
-    const userId = decoded.user_id;
+    const userId = await eventChecklist(eventId, token);
 
     // Verify the user is either the event creator or the comment writer
     const checkQuery = `
@@ -253,16 +222,11 @@ exports.deleteEventComment = async (params, headers) => {
 exports.selectEventUsers = async (params, headers) => {
     const eventId = params.event_id;
     const token = headers["authorization"];
-
-    // Check if user has access to the event
-    const accessible = await checkEventIsAccessible(eventId, token);
-    if (!accessible) {
-        return Promise.reject({status: 401, msg: "Unauthorised"});
-    }
+    await eventChecklist(eventId, token);
 
     // Select users for the event
     const query = `
-        SELECT u.username, u.display_name, u.avatar
+        SELECT u.username, u.display_name, u.avatar, eu.status
         FROM event_users eu
                  JOIN users u ON eu.user_id = u.id
         WHERE eu.event_id = $1;
@@ -270,175 +234,146 @@ exports.selectEventUsers = async (params, headers) => {
     const res = await client.query(query, [eventId]);
     return res.rows;
 };
-const checkUserPermission = async (eventId, userId, token) => {
-    // Dummy implementation for checking event accessibility
-    // Replace with actual implementation
-    const decoded = jwt.verify(token, process.env.JWT_KEY);
-    const requestingUserId = decoded.user_id;
-
-    const query = `
-        SELECT created_by
-        FROM events
-        WHERE id = $1;
-    `;
-    const res = await client.query(query, [eventId]);
-    if (res.rows.length === 0) return false;
-    const event = res.rows[0];
-
-    return event.created_by === requestingUserId || userId === requestingUserId;
-};
 
 exports.insertEventUser = async (params, body, headers) => {
     const eventId = params.event_id;
-    const userId = body.user_id;
+    const userIdToInsert = body.user_id;
     const token = headers["authorization"];
-    if (token) {
-        try {
-            // Check if user has permission to insert user to the event
-            const hasPermission = await checkUserPermission(eventId, userId, token);
-            if (!hasPermission) {
-                return Promise.reject({status: 401, msg: "Unauthorised"});
-            }
+    await eventChecklist(eventId, token);
 
-            // Insert user into the event
-            const query = `
-                INSERT INTO event_users (event_id, user_id, status)
-                VALUES ($1, $2, $3)
-                RETURNING *;
-            `;
-            const values = [eventId, userId, body.status || 0];
+    // Check if invited user has permission to see the event
+    await checkUserCanAccessEvent(eventId, userIdToInsert);
 
-            const res = await client.query(query, values);
-            return res.rows[0];
-        } catch {
-            return Promise.reject({status: 401, msg: "Unauthorised"});
-        }
-    } else {
-        return Promise.reject({status: 401, msg: "Unauthorised"});
-    }
+    // Insert user into the event
+    const query = `
+        INSERT INTO event_users (event_id, user_id, status)
+        VALUES ($1, $2, $3)
+        RETURNING *;
+    `;
+    const values = [eventId, userIdToInsert, body.status || 0];
+
+    const res = await client.query(query, values);
+    return res.rows[0];
 };
 
 exports.updateEventUser = async (params, headers) => {
     const eventId = params.event_id;
-    const userId = params.user_id;
+    const userIdToUpdate = params.user_id;
     const token = headers["authorization"];
-    if (token) {
-        try {
-            const decoded = jwt.verify(token, process.env.JWT_KEY);
-            const requestingUserId = decoded.user_id;
+    const userId = await eventChecklist(eventId, token);
 
-            // Get event and user associated with event_user record
-            const selectQuery = `
-                SELECT eu.event_id, eu.user_id, e.created_by
-                FROM event_users eu
-                         JOIN events e ON eu.event_id = e.id
-                WHERE eu.event_id = $1
-                  and eu.user_id = $2;
-            `;
-            const selectRes = await client.query(selectQuery, [eventId, userId]);
-            if (selectRes.rows.length === 0) {
-                return Promise.reject({status: 404, msg: "Not Found"});
-            }
-            const eventUser = selectRes.rows[0];
+    // Get event and user associated with event_user record
+    const selectQuery = `
+        SELECT eu.event_id, eu.user_id, e.created_by
+        FROM event_users eu
+                 JOIN events e ON eu.event_id = e.id
+        WHERE eu.event_id = $1
+          and eu.user_id = $2;
+    `;
+    const selectRes = await client.query(selectQuery, [eventId, userId]);
+    if (selectRes.rows.length === 0) {
+        return Promise.reject({status: 404, msg: "Not Found"});
+    }
+    const eventUser = selectRes.rows[0];
 
-            // Check if requesting user has permission to update this event user
-            const hasPermission = eventUser.created_by === requestingUserId || eventUser.user_id === requestingUserId;
-            if (!hasPermission) {
-                return Promise.reject({status: 401, msg: "Unauthorised"});
-            }
-
-            // Update status of the event user
-            const updateQuery = `
-                UPDATE event_users
-                SET status = $1
-                WHERE id = $2
-                RETURNING *;
-            `;
-            const values = [params.status, eventUser.id];
-
-            const res = await client.query(updateQuery, values);
-            return res.rows[0];
-        } catch {
-            return Promise.reject({status: 401, msg: "Unauthorised"});
-        }
-    } else {
+    // Check if requesting user has permission to update this event user
+    const hasPermission = eventUser.created_by === userId || eventUser.user_id === userIdToUpdate;
+    if (!hasPermission) {
         return Promise.reject({status: 401, msg: "Unauthorised"});
     }
+
+    // Update status of the event user
+    const updateQuery = `
+        UPDATE event_users
+        SET status = $1
+        WHERE id = $2
+        RETURNING *;
+    `;
+    const values = [params.status, eventUser.id];
+
+    const res = await client.query(updateQuery, values);
+    return res.rows[0];
 };
 
 exports.deleteEventUser = async (params, headers) => {
     const eventId = params.event_id;
-    const userId = params.user_id;
+    const userIdToDelete = params.user_id;
     const token = headers["authorization"];
-    if (token) {
-        try {
-            const decoded = jwt.verify(token, process.env.JWT_KEY);
-            const requestingUserId = decoded.user_id;
+    const userId = await eventChecklist(eventId, token);
 
-            // Get event and user associated with event_user record
-            const selectQuery = `
-                SELECT eu.event_id, eu.user_id, e.created_by
-                FROM event_users eu
-                         JOIN events e ON eu.event_id = e.id
-                WHERE eu.event_id = $1
-                  and eu.user_id = $2;
-            `;
-            const selectRes = await client.query(selectQuery, [eventId, userId]);
-            if (selectRes.rows.length === 0) {
-                return Promise.reject({status: 404, msg: "Not Found"});
-            }
-            const eventUser = selectRes.rows[0];
+    // Get event and user associated with event_user record
+    const selectQuery = `
+        SELECT eu.event_id, eu.user_id, e.created_by
+        FROM event_users eu
+                 JOIN events e ON eu.event_id = e.id
+        WHERE eu.event_id = $1
+          and eu.user_id = $2;
+    `;
+    const selectRes = await client.query(selectQuery, [eventId, userIdToDelete]);
+    if (selectRes.rows.length === 0) {
+        return Promise.reject({status: 404, msg: "Not Found"});
+    }
+    const eventUser = selectRes.rows[0];
 
-            // Check if requesting user has permission to delete this event user
-            const hasPermission = eventUser.created_by === requestingUserId || eventUser.user_id === requestingUserId;
-            if (!hasPermission) {
-                return Promise.reject({status: 401, msg: "Unauthorised"});
-            }
-
-            // Delete the event user
-            const deleteQuery = `
-                DELETE
-                FROM event_users
-                WHERE id = $1
-                RETURNING *;
-            `;
-            const res = await client.query(deleteQuery, [eventUser.id]);
-        } catch {
-            return Promise.reject({status: 401, msg: "Unauthorised"});
-        }
-    } else {
+    // Check if requesting user has permission to delete this event user
+    const hasPermission = eventUser.created_by === userId || eventUser.user_id === userId;
+    if (!hasPermission) {
         return Promise.reject({status: 401, msg: "Unauthorised"});
     }
+
+    // Delete the event user
+    const deleteQuery = `
+        DELETE
+        FROM event_users
+        WHERE id = $1
+        RETURNING *;
+    `;
+    await client.query(deleteQuery, [eventUser.id]);
 };
 
-const checkEventIsAccessible = async (event_id, token) => {
-    if (!event_id) {
-        return Promise.reject({status: 400, msg: "Event ID not provided"});
+const checkEventIsPublic = async (eventId) => {
+    const query = `
+        SELECT e.id,
+               e.created_by,
+               e.visibility,
+               e.group_id,
+               g.visibility as group_visibility
+        FROM events e
+                 LEFT JOIN public.groups g on g.id = e.group_id
+        WHERE e.id = $1;
+    `;
+    const res = await client.query(query, [eventId]);
+    // If event and group are public, return true
+    if (res.rows[0].visibility === 0 && res.rows[0].group_visibility === 0) {
+        return true;
     }
-    if (Number.isNaN(event_id)) {
-        return Promise.reject({status: 400, msg: "Invalid event_id datatype"});
-    }
-    if (!(await checkIfExists("events", "id", +event_id))) {
-        return Promise.reject({status: 404, msg: "Event not found"});
-    }
+    // If this has failed, reject the request
+    return Promise.reject({status: 401, msg: "Unauthorised"});
+};
+
+const eventChecklist = async (eventId, token) => {
+    let userId = undefined;
     if (token) {
         try {
             const decoded = jwt.verify(token, process.env.JWT_KEY);
-            const user_id = decoded.user_id;
-            const access = await canUserAccessEvent(event_id, user_id);
-            if (!access) {
-                return Promise.reject({status: 401, msg: "Unauthorised"});
-            }
+            userId = decoded.user_id;
         } catch {
             return Promise.reject({status: 401, msg: "Unauthorised"});
         }
-    } else {
-        const eventResults = await client.query(`SELECT *
-                                                 FROM events
-                                                 WHERE id = $1`, [event_id]);
-        const event = eventResults.rows[0];
-        if (event.visibility !== 0) {
-            return Promise.reject({status: 401, msg: "Unauthorised"});
-        }
     }
+    if (!eventId) {
+        return Promise.reject({status: 400, msg: "Event ID not provided"});
+    }
+    if (Number.isNaN(eventId)) {
+        return Promise.reject({status: 400, msg: "Invalid event_id datatype"});
+    }
+    if (!(await checkIfExists("events", "id", +eventId))) {
+        return Promise.reject({status: 404, msg: "Event not found"});
+    }
+    if (userId) {
+        await checkUserCanAccessEvent(eventId, userId);
+    } else {
+        await checkEventIsPublic(eventId);
+    }
+    return userId;
 };

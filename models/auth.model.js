@@ -1,5 +1,5 @@
 const client = require("../database/connection");
-const {generateToken} = require("./utils.model");
+const {generateUserToken} = require("./utils.model");
 const jwt = require("jsonwebtoken");
 const axios = require("axios");
 const bcrypt = require("bcrypt");
@@ -37,24 +37,8 @@ exports.refreshCurrentUser = async (body) => {
         const userResponse = await client.query(`SELECT *
                                                  FROM users
                                                  WHERE id = $1;`, [decoded.id]);
-        return generateReturnObject(userResponse.rows[0]);
+        return generateUserToken(userResponse.rows[0]);
     } catch {
         return Promise.reject({status: 401, msg: "Unauthorised"});
     }
-};
-
-const generateReturnObject = (user) => {
-    const response = {...user};
-    response.tokens = {
-        accessToken: generateToken({
-            id: user.user_id,
-            username: user.username,
-            displayName: user.display_name
-        }),
-        refreshToken: generateToken({id: user.id}, "7d")
-    };
-    const tokenExpiration = Date.now() + 60 * 60 * 1000;
-    const refreshExpiration = Date.now() + 7 * 24 * 60 * 60 * 1000;
-    response.expiration = {auth: tokenExpiration, refresh: refreshExpiration};
-    return response;
 };

@@ -1,6 +1,6 @@
 const client = require("../database/connection");
 const jwt = require("jsonwebtoken");
-const {checkIfExists, generateToken} = require("./utils.model");
+const {checkIfExists, generateUserToken} = require("./utils.model");
 const {hash} = require("bcrypt");
 exports.selectUsers = async (queries, headers) => {
 
@@ -59,7 +59,7 @@ exports.insertUser = async (body, headers) => {
         const insertUserResult = await client.query(insertUserQuery, [body.username, body.display_name, body.email, hashedPassword]);
 
         // Return inserted user
-        return generateReturnObject(insertUserResult.rows[0]);
+        return generateUserToken(insertUserResult.rows[0]);
     } catch (err) {
         return Promise.reject({status: 500, msg: err.message});
     }
@@ -81,8 +81,8 @@ exports.updateUser = async (params, body, headers) => {
             const updateQuery = `
                 UPDATE users
                 SET display_name = $1,
-                    email        = $2,
-                    WHERE id = $3
+                    email        = $2
+                WHERE id = $3
                 RETURNING *;
             `;
             const values = [
@@ -161,20 +161,4 @@ exports.selectUserGroups = async (params, headers) => {
         }
         return events;
     }
-};
-
-const generateReturnObject = (user) => {
-    const response = {...user};
-    response.tokens = {
-        accessToken: generateToken({
-            id: user.user_id,
-            username: user.username,
-            displayName: user.display_name
-        }),
-        refreshToken: generateToken({id: user.id}, "7d")
-    };
-    const tokenExpiration = Date.now() + 60 * 60 * 1000;
-    const refreshExpiration = Date.now() + 7 * 24 * 60 * 60 * 1000;
-    response.expiration = {auth: tokenExpiration, refresh: refreshExpiration};
-    return response;
 };

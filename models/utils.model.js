@@ -45,9 +45,25 @@ exports.canUserAccessEvent = async (event_id, user_id) => {
                  OR
              (ug.user_id = $1 AND e.visibility <= ug.access_level)
              )
-           AND e.event_id = $2`,
+           AND e.id = $2`,
         [user_id, event_id]
     );
     // If a row is returned, they have access
     return result.rows.length > 0;
+};
+
+exports.generateUserToken = (user) => {
+    const response = {...user};
+    response.tokens = {
+        accessToken: generateToken({
+            id: user.user_id,
+            username: user.username,
+            displayName: user.display_name
+        }),
+        refreshToken: generateToken({id: user.id}, "7d")
+    };
+    const tokenExpiration = Date.now() + 60 * 60 * 1000;
+    const refreshExpiration = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    response.expiration = {auth: tokenExpiration, refresh: refreshExpiration};
+    return response;
 };

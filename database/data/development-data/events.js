@@ -1,7 +1,7 @@
 module.exports = [
     {
         "id": 1,
-        "created_by_id": 1,
+        "created_by": 1,
         "group_id": 1,
         "visibility": 1,
         "start_time": "2024-06-10T10:00:00Z",
@@ -11,7 +11,7 @@ module.exports = [
     },
     {
         "id": 2,
-        "created_by_id": 2,
+        "created_by": 2,
         "group_id": 2,
         "visibility": 1,
         "start_time": "2024-06-11T14:00:00Z",
@@ -21,7 +21,7 @@ module.exports = [
     },
     {
         "id": 3,
-        "created_by_id": 3,
+        "created_by": 3,
         "group_id": 3,
         "visibility": 0,
         "start_time": "2024-06-12T09:00:00Z",
@@ -31,7 +31,7 @@ module.exports = [
     },
     {
         "id": 4,
-        "created_by_id": 4,
+        "created_by": 4,
         "group_id": 4,
         "visibility": 1,
         "start_time": "2024-06-13T11:00:00Z",
@@ -41,7 +41,7 @@ module.exports = [
     },
     {
         "id": 5,
-        "created_by_id": 5,
+        "created_by": 5,
         "group_id": 5,
         "visibility": 0,
         "start_time": "2024-06-14T15:00:00Z",

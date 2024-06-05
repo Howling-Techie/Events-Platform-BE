@@ -37,6 +37,15 @@ app.use(function (req, res, next) {
 });
 
 // error handler
+<<<<<<< database
+app.use((err, req, res, next) => {
+    if (err.status && err.msg) {
+        res.status(err.status).send({msg: err.msg});
+    } else {
+        console.log(err);
+        res.status(500).send({msg: "Internal Server Error"});
+    }
+=======
 app.use(function (err, req, res, next) {
     // set locals, only providing error in development
     res.locals.message = err.message;
@@ -45,6 +54,7 @@ app.use(function (err, req, res, next) {
     // render the error page
     res.status(err.status || 500);
     res.render("error");
+>>>>>>> main
 });
 
 module.exports = app;

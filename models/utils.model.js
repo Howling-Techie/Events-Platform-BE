@@ -2,10 +2,6 @@ const client = require("../database/connection");
 const format = require("pg-format");
 const {sign, verify, decode} = require("jsonwebtoken");
 
-
-exports.generateToken = (payload, duration = "1hr") => {
-    return sign(payload, process.env.JWT_KEY, {expiresIn: duration});
-};
 exports.verifyToken = (token) => {
     try {
         return verify(token, process.env.JWT_KEY);
@@ -55,12 +51,12 @@ exports.canUserAccessEvent = async (event_id, user_id) => {
 exports.generateUserToken = (user) => {
     const response = {...user};
     response.tokens = {
-        accessToken: generateToken({
+        accessToken: sign({
             id: user.user_id,
             username: user.username,
             displayName: user.display_name
-        }),
-        refreshToken: generateToken({id: user.id}, "7d")
+        }, process.env.JWT_KEY, {expiresIn: "1hr"})(),
+        refreshToken: sign({id: user.id}, process.env.JWT_KEY, {expiresIn: "7d"})
     };
     const tokenExpiration = Date.now() + 60 * 60 * 1000;
     const refreshExpiration = Date.now() + 7 * 24 * 60 * 60 * 1000;

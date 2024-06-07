@@ -1,20 +1,20 @@
 const client = require("../database/connection");
 const format = require("pg-format");
-const {sign, verify, decode} = require("jsonwebtoken");
+const jwt = require("jsonwebtoken");
 
 const verifyToken = (token) => {
     try {
-        return verify(token, process.env.JWT_KEY);
+        return jwt.verify(token, process.env.JWT_KEY);
     } catch (err) {
         return null;
     }
 };
 const refreshToken = (token) => {
-    const decodedToken = decode(token);
+    const decodedToken = jwt.decode(token);
     const currentTime = Date.now() / 1000;
 
     if (decodedToken && decodedToken.exp - currentTime < 300) { // If token expires in less than 5 minutes
-        return sign({...decodedToken, iat: currentTime}, process.env.JWT_KEY, {expiresIn: "1h"});
+        return jwt.sign({...decodedToken, iat: currentTime}, process.env.JWT_KEY, {expiresIn: "1h"});
     }
 
     return token;
@@ -102,14 +102,15 @@ const checkUserCanAccessGroup = async (groupId, userId) => {
 };
 
 const generateUserToken = (user) => {
-    const response = {...user};
+    const response = {};
+    response.user = {id: user.id, username: user.username, display_name: user.display_name, avatar: user.avatar};
     response.tokens = {
-        accessToken: sign({
-            id: user.user_id,
+        accessToken: jwt.sign({
+            id: user.id,
             username: user.username,
             displayName: user.display_name
-        }, process.env.JWT_KEY, {expiresIn: "1hr"})(),
-        refreshToken: sign({id: user.id}, process.env.JWT_KEY, {expiresIn: "7d"})
+        }, process.env.JWT_KEY, {expiresIn: "1hr"}),
+        refreshToken: jwt.sign({id: user.id}, process.env.JWT_KEY, {expiresIn: "7d"})
     };
     const tokenExpiration = Date.now() + 60 * 60 * 1000;
     const refreshExpiration = Date.now() + 7 * 24 * 60 * 60 * 1000;

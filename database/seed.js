@@ -47,10 +47,10 @@ async function createTables() {
     await client.query(`
         CREATE TABLE IF NOT EXISTS user_contacts
         (
-            id         SERIAL PRIMARY KEY,
             user_id    INTEGER REFERENCES users (id),
             contact_id INTEGER REFERENCES users (id),
-            note       TEXT
+            note       TEXT,
+            PRIMARY KEY (user_id, contact_id)
         );
     `);
 

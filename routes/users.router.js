@@ -15,7 +15,7 @@ usersRouter
     .post(postUser);
 
 usersRouter
-    .route("/:user_id")
+    .route("/:username")
     .get(getUser)
     .patch(patchUser)
     .delete(deleteUser);

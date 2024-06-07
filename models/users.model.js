@@ -3,6 +3,8 @@ const jwt = require("jsonwebtoken");
 const {checkIfExists, generateUserToken} = require("./utils.model");
 const {hash} = require("bcrypt");
 
+const saltRounds = 10;
+
 exports.selectUsers = async (queries, headers) => {
     const {username, displayName} = queries;
     const token = headers["authorization"];
@@ -59,7 +61,6 @@ exports.selectUser = async (params, headers) => {
 };
 
 exports.insertUser = async (body, headers) => {
-    const saltRounds = 10;
     try {
         // Check if username or email already exist
         const userExistsQuery = "SELECT * FROM users WHERE username = $1 OR email = $2";
@@ -88,10 +89,10 @@ exports.updateUser = async (params, body, headers) => {
     if (token) {
         try {
             const decoded = jwt.verify(token, process.env.JWT_KEY);
-            const userId = decoded.user_id;
+            const username = decoded.username;
 
             // Ensure the user is modifying their own account
-            if (params.user_id !== userId) {
+            if (params.username !== username) {
                 return Promise.reject({status: 401, msg: "Unauthorised"});
             }
 
@@ -99,17 +100,36 @@ exports.updateUser = async (params, body, headers) => {
             const updateQuery = `
                 UPDATE users
                 SET display_name = $1,
-                    email        = $2
-                WHERE id = $3
+                    email        = $2,
+                    about        = $3
+                WHERE username = $4
                 RETURNING *;
             `;
             const values = [
                 body.display_name,
                 body.email,
-                userId
+                body.about,
+                username
             ];
 
             const res = await client.query(updateQuery, values);
+
+            // Handle a new password
+            if (body.password) {
+                const hashedPassword = await hash(body.password, saltRounds);
+                const updatePasswordQuery = `
+                    UPDATE users
+                    SET password = $1
+                    WHERE username = $2
+                    RETURNING *;
+                `;
+                const passwordValues = [
+                    hashedPassword,
+                    username
+                ];
+                await client.query(updatePasswordQuery, passwordValues);
+            }
+
             return res.rows[0];
         } catch {
             return Promise.reject({status: 401, msg: "Unauthorised"});

@@ -21,7 +21,7 @@ usersRouter
     .delete(deleteUser);
 
 usersRouter
-    .route("/:user_id/groups")
+    .route("/:username/groups")
     .get(getUserGroups);
 
 module.exports = usersRouter;

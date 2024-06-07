@@ -148,18 +148,18 @@ exports.deleteUser = async (params, headers) => {
     if (token) {
         try {
             const decoded = jwt.verify(token, process.env.JWT_KEY);
-            const userId = decoded.user_id;
+            const username = decoded.username;
 
             // Ensure the user is deleting their own account
-            if (params.user_id !== userId) {
+            if (params.username !== username) {
                 return Promise.reject({status: 401, msg: "Unauthorised"});
             }
             // Delete user from the database
             await client.query(`
                 DELETE
                 FROM users
-                WHERE id = $1;
-            `, [userId]);
+                WHERE username = $1;
+            `, [username]);
         } catch {
             return Promise.reject({status: 401, msg: "Unauthorised"});
         }
@@ -177,13 +177,14 @@ exports.selectUserGroups = async (params, headers) => {
             const user_id = decoded.user_id;
             const results = await client.query(`SELECT g.*
                                                 FROM groups g
-                                                         INNER JOIN user_groups ug1 ON ug1.group_id = g.id AND ug1.user_id = $1
+                                                         INNER JOIN user_groups ug1 ON ug1.group_id = g.id
+                                                         INNER JOIN users u1 ON ug1.user_id = u1.id = $1
                                                          LEFT JOIN user_groups ug2 ON ug2.group_id = g.id AND ug2.user_id = $2
                                                 WHERE (
                                                           (g.visibility = 0)
                                                               OR
                                                           (ug2.user_id = $2)
-                                                          );`, [params.user_id, user_id]);
+                                                          );`, [params.username, user_id]);
             return results.rows;
         } catch {
             return Promise.reject({status: 401, msg: "Unauthorised"});
@@ -191,10 +192,11 @@ exports.selectUserGroups = async (params, headers) => {
     } else {
         const results = await client.query(`SELECT g.*
                                             FROM groups g
-                                                     INNER JOIN user_groups ug1 ON ug1.group_id = g.id AND ug1.user_id = $1
+                                                     INNER JOIN user_groups ug1 ON ug1.group_id = g.id
+                                                     INNER JOIN users u1 ON ug1.user_id = u1.id = $1
                                             WHERE (
                                                       (g.visibility = 0)
-                                                      );`, [params.user_id]);
+                                                      );`, [params.username]);
         return results.rows;
     }
 };

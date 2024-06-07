@@ -7,7 +7,8 @@ const saltRounds = 10;
 
 exports.selectUsers = async (queries, headers) => {
     const {username, displayName} = queries;
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     if (token) {
         try {
             const decoded = jwt.verify(token, process.env.JWT_KEY);
@@ -28,7 +29,8 @@ exports.selectUsers = async (queries, headers) => {
 
 exports.selectUser = async (params, headers) => {
     const {username} = params;
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     if (!(await checkIfExists("users", "username", username))) {
         return Promise.reject({status: 404, msg: "User Not Found"});
     }
@@ -85,7 +87,8 @@ exports.insertUser = async (body, headers) => {
 };
 
 exports.updateUser = async (params, body, headers) => {
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     if (token) {
         try {
             const decoded = jwt.verify(token, process.env.JWT_KEY);
@@ -140,7 +143,8 @@ exports.updateUser = async (params, body, headers) => {
 };
 
 exports.deleteUser = async (params, headers) => {
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     if (token) {
         try {
             const decoded = jwt.verify(token, process.env.JWT_KEY);
@@ -165,7 +169,8 @@ exports.deleteUser = async (params, headers) => {
 };
 
 exports.selectUserGroups = async (params, headers) => {
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     if (token) {
         try {
             const decoded = jwt.verify(token, process.env.JWT_KEY);

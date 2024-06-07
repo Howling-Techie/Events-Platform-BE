@@ -3,7 +3,8 @@ const jwt = require("jsonwebtoken");
 const {checkIfExists, checkUserCanAccessEvent} = require("./utils.model");
 
 exports.selectEvents = async (queries, headers) => {
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     // If a token is provided, include events the user would have access to
     if (token) {
         try {
@@ -42,7 +43,8 @@ exports.selectEvents = async (queries, headers) => {
 
 exports.selectEvent = async (params, headers) => {
     const eventId = params.event_id;
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     await eventChecklist(eventId, token);
 
     // Select the event
@@ -58,7 +60,8 @@ exports.selectEvent = async (params, headers) => {
 };
 
 exports.insertEvent = async (body, headers) => {
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     if (token)
         try {
             // Verify user from JWT token
@@ -91,7 +94,8 @@ exports.insertEvent = async (body, headers) => {
 
 exports.updateEvent = async (params, body, headers) => {
     const eventId = params.event_id;
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     const userId = await eventChecklist(eventId, token);
 
     // Ensure the user is the creator of the event
@@ -129,7 +133,8 @@ exports.updateEvent = async (params, body, headers) => {
 
 exports.deleteEvent = async (params, headers) => {
     const eventId = params.event_id;
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     const userId = await eventChecklist(eventId, token);
     if (userId === undefined) {
         return Promise.reject({status: 401, msg: "Unauthorised"});
@@ -155,7 +160,8 @@ exports.deleteEvent = async (params, headers) => {
 
 exports.selectEventComments = async (params, headers) => {
     const eventId = params.event_id;
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     await eventChecklist(eventId, token);
 
     // Select comments for the event
@@ -172,7 +178,8 @@ exports.selectEventComments = async (params, headers) => {
 
 exports.insertEventComment = async (params, body, headers) => {
     const eventId = params.event_id;
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     const userId = await eventChecklist(eventId, token);
 
     // Insert comment into the database
@@ -189,7 +196,8 @@ exports.insertEventComment = async (params, body, headers) => {
 exports.deleteEventComment = async (params, headers) => {
     const commentId = params.comment_id;
     const eventId = params.event_id;
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     const userId = await eventChecklist(eventId, token);
 
     // Verify the user is either the event creator or the comment writer
@@ -221,7 +229,8 @@ exports.deleteEventComment = async (params, headers) => {
 
 exports.selectEventUsers = async (params, headers) => {
     const eventId = params.event_id;
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     await eventChecklist(eventId, token);
 
     // Select users for the event
@@ -238,7 +247,8 @@ exports.selectEventUsers = async (params, headers) => {
 exports.insertEventUser = async (params, body, headers) => {
     const eventId = params.event_id;
     const userIdToInsert = body.user_id;
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     await eventChecklist(eventId, token);
 
     // Check if invited user has permission to see the event
@@ -259,7 +269,8 @@ exports.insertEventUser = async (params, body, headers) => {
 exports.updateEventUser = async (params, headers) => {
     const eventId = params.event_id;
     const userIdToUpdate = params.user_id;
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     const userId = await eventChecklist(eventId, token);
 
     // Get event and user associated with event_user record
@@ -298,7 +309,8 @@ exports.updateEventUser = async (params, headers) => {
 exports.deleteEventUser = async (params, headers) => {
     const eventId = params.event_id;
     const userIdToDelete = params.user_id;
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     const userId = await eventChecklist(eventId, token);
 
     // Get event and user associated with event_user record

@@ -3,7 +3,8 @@ const client = require("../database/connection");
 const {checkIfExists, checkUserCanAccessGroup} = require("./utils.model");
 
 exports.selectGroups = async (queries, headers) => {
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     // If a token is provided, return groups the user would have access to
     if (token) {
         try {
@@ -32,7 +33,8 @@ exports.selectGroups = async (queries, headers) => {
 
 exports.selectGroup = async (params, headers) => {
     const groupId = params.group_id;
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     await groupChecklist(groupId, token);
 
     // Select the group
@@ -43,7 +45,8 @@ exports.selectGroup = async (params, headers) => {
 };
 
 exports.insertGroup = async (body, headers) => {
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     if (token)
         try {
             // Verify user from JWT token
@@ -74,7 +77,8 @@ exports.insertGroup = async (body, headers) => {
 
 exports.updateGroup = async (params, body, headers) => {
     const groupId = params.group_id;
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     const userId = await groupChecklist(groupId, token);
 
     // Ensure the user is the creator of the group
@@ -110,7 +114,8 @@ exports.updateGroup = async (params, body, headers) => {
 
 exports.deleteGroup = async (params, headers) => {
     const groupId = params.group_id;
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     const userId = await groupChecklist(groupId, token);
     if (userId === undefined) {
         return Promise.reject({status: 401, msg: "Unauthorised"});
@@ -136,7 +141,8 @@ exports.deleteGroup = async (params, headers) => {
 
 exports.selectGroupUsers = async (params, headers) => {
     const groupId = params.group_id;
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     await groupChecklist(groupId, token);
 
     // Select users for the group
@@ -152,9 +158,10 @@ exports.selectGroupUsers = async (params, headers) => {
 
 exports.selectGroupEvents = async (params, headers) => {
     const groupId = params.group_id;
-    const token = headers["authorization"];
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     const userId = await groupChecklist(groupId, token);
-    
+
     // Get all visible events
     if (userId) {
         const eventResults = await client.query(`SELECT e.*

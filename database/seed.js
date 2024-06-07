@@ -39,7 +39,7 @@ async function createTables() {
             email        VARCHAR(255) UNIQUE,
             avatar       VARCHAR(255),
             password     VARCHAR(255),
-            about        TEXT
+            about        TEXT         NOT NULL DEFAULT ''
         );
     `);
 

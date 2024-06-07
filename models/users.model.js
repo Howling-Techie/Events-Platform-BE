@@ -43,10 +43,27 @@ exports.selectUser = async (params, headers) => {
                                                        WHERE username = $1`, [username]);
                 return userResult.rows[0];
             } else {
-                const userResult = await client.query(`SELECT username, display_name, avatar, about
+                const userResult = await client.query(`SELECT id,
+                                                              username,
+                                                              display_name,
+                                                              avatar,
+                                                              about
                                                        FROM users
                                                        WHERE username = $1`, [username]);
-                return userResult.rows[0];
+                const user = userResult.rows[0];
+                const contactResult = await client.query(`SELECT uc.note,
+                                                                 (case
+                                                                      when uc.user_id = uc2.contact_id AND uc.contact_id = uc2.user_id
+                                                                          THEN TRUE
+                                                                      ELSE FALSE END) as friends
+                                                          FROM user_contacts as uc
+                                                                   LEFT JOIN user_contacts uc2 on uc2.user_id = $2 AND uc2.contact_id = $1
+                                                          WHERE uc.user_id = $1
+                                                            AND uc.contact_id = $2`, [decoded.id, user.id]);
+                if (contactResult.rows.length > 0) {
+                    user.contact = contactResult.rows[0];
+                }
+                return user;
             }
         } catch {
             const userResult = await client.query(`SELECT username, display_name, avatar, about

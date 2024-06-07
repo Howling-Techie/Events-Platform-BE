@@ -5,6 +5,9 @@ const {
     deleteUser,
     updateUser,
     selectUserGroups,
+    insertUserFollow,
+    deleteUserFollow,
+    updateUserNote,
 } = require("../models/users.model");
 
 exports.getUsers = (req, res, next) => {
@@ -61,6 +64,36 @@ exports.getUserGroups = (req, res, next) => {
     selectUserGroups(req.params, req.headers)
         .then((groups) => {
             res.status(200).send({groups});
+        })
+        .catch((error) => {
+            next(error);
+        });
+};
+
+exports.patchUserNote = (req, res, next) => {
+    updateUserNote(req.params, req.body, req.headers)
+        .then((user) => {
+            res.status(200).send({user});
+        })
+        .catch((error) => {
+            next(error);
+        });
+};
+
+exports.postUserFollow = (req, res, next) => {
+    insertUserFollow(req.params, req.headers)
+        .then((user) => {
+            res.status(201).send({user});
+        })
+        .catch((error) => {
+            next(error);
+        });
+};
+
+exports.deleteUserFollow = (req, res, next) => {
+    deleteUserFollow(req.params, req.headers)
+        .then((user) => {
+            res.status(200).send({user});
         })
         .catch((error) => {
             next(error);

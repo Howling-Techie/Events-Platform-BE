@@ -217,3 +217,122 @@ exports.selectUserGroups = async (params, headers) => {
         return results.rows;
     }
 };
+
+exports.updateUserNote = async (params, body, headers) => {
+    const tokenHeader = headers["authorization"];
+    const {username} = params;
+    const {note} = body;
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
+    if (token) {
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_KEY);
+            const userId = decoded.id;
+            const userToUpdateResult = await client.query(`SELECT id,
+                                                                  username,
+                                                                  display_name,
+                                                                  avatar,
+                                                                  about
+                                                           FROM users
+                                                           WHERE username = $1;`, [username]);
+            if (userToUpdateResult.rows.length === 0) {
+                return Promise.reject({status: 404, msg: "User Not Found"});
+            }
+            const user = userToUpdateResult.rows[0];
+            await client.query(`INSERT INTO user_contacts (user_id, contact_id, note)
+                                VALUES ($1, $2, $3)
+                                ON CONFLICT (user_id, contact_id)
+                                    DO UPDATE SET note = $3`, [userId, user.id, note]);
+            const contactResult = await client.query(`SELECT uc.note,
+                                                             (case
+                                                                  when uc.user_id = uc2.contact_id AND uc.contact_id = uc2.user_id
+                                                                      THEN TRUE
+                                                                  ELSE FALSE END) as friends
+                                                      FROM user_contacts as uc
+                                                               LEFT JOIN user_contacts uc2 on uc2.user_id = $2 AND uc2.contact_id = $1
+                                                      WHERE uc.user_id = $1
+                                                        AND uc.contact_id = $2`, [decoded.id, user.id]);
+            user.contact = contactResult.rows[0];
+            return user;
+        } catch {
+            return Promise.reject({status: 401, msg: "Unauthorised"});
+        }
+    } else {
+        return Promise.reject({status: 401, msg: "Unauthorised"});
+    }
+};
+
+exports.insertUserFollow = async (params, headers) => {
+    const tokenHeader = headers["authorization"];
+    const {username} = params;
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
+    if (token) {
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_KEY);
+            const userId = decoded.id;
+            const userResult = await client.query(`SELECT id,
+                                                          username,
+                                                          display_name,
+                                                          avatar,
+                                                          about
+                                                   FROM users
+                                                   WHERE username = $1`, [username]);
+            if (userResult.rows.length === 0) {
+                return Promise.reject({status: 404, msg: "User Not Found"});
+            }
+            const user = userResult.rows[0];
+            await client.query(`INSERT INTO user_contacts (user_id, contact_id)
+                                VALUES ($1, $2)
+                                ON CONFLICT (user_id, contact_id)
+                                    DO NOTHING`, [userId, user.id]);
+            const contactResult = await client.query(`SELECT uc.note,
+                                                             (case
+                                                                  when uc.user_id = uc2.contact_id AND uc.contact_id = uc2.user_id
+                                                                      THEN TRUE
+                                                                  ELSE FALSE END) as friends
+                                                      FROM user_contacts as uc
+                                                               LEFT JOIN user_contacts uc2 on uc2.user_id = $2 AND uc2.contact_id = $1
+                                                      WHERE uc.user_id = $1
+                                                        AND uc.contact_id = $2`, [decoded.id, user.id]);
+            if (contactResult.rows.length > 0) {
+                user.contact = contactResult.rows[0];
+            }
+            return user;
+        } catch {
+            return Promise.reject({status: 401, msg: "Unauthorised: Invalid Authentication"});
+        }
+    } else {
+        return Promise.reject({status: 401, msg: "Unauthorised: No Authentication Provided"});
+    }
+};
+
+exports.deleteUserFollow = async (params, headers) => {
+    const tokenHeader = headers["authorization"];
+    const {username} = params;
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
+    if (token) {
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_KEY);
+            const userId = decoded.id;
+            const userResult = await client.query(`SELECT id,
+                                                          username,
+                                                          display_name,
+                                                          avatar,
+                                                          about
+                                                   FROM users
+                                                   WHERE username = $1`, [username]);
+            if (userResult.rows.length === 0) {
+                return Promise.reject({status: 404, msg: "User Not Found"});
+            }
+            const user = userResult.rows[0];
+            await client.query(`DELETE
+                                FROM user_contacts
+                                WHERE user_id = $1
+                                  AND contact_id = $2`, [userId, user.id]);
+            return user;
+        } catch {
+            return Promise.reject({status: 401, msg: "Unauthorised"});
+        }
+    } else {
+        return Promise.reject({status: 401, msg: "Unauthorised"});
+    }
+};

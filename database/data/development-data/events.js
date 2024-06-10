@@ -1,6 +1,5 @@
 module.exports = [
     {
-        "id": 1,
         "created_by": 1,
         "group_id": 1,
         "visibility": 1,
@@ -10,7 +9,6 @@ module.exports = [
         "description": "A meetup for all developers to discuss the latest trends in software development."
     },
     {
-        "id": 2,
         "created_by": 2,
         "group_id": 2,
         "visibility": 1,
@@ -20,7 +18,6 @@ module.exports = [
         "description": "A workshop on the latest design tools and techniques."
     },
     {
-        "id": 3,
         "created_by": 3,
         "group_id": 3,
         "visibility": 0,
@@ -30,7 +27,6 @@ module.exports = [
         "description": "A training session on advanced project management strategies."
     },
     {
-        "id": 4,
         "created_by": 4,
         "group_id": 4,
         "visibility": 1,
@@ -40,7 +36,6 @@ module.exports = [
         "description": "A webinar on effective content writing practices."
     },
     {
-        "id": 5,
         "created_by": 5,
         "group_id": 5,
         "visibility": 0,

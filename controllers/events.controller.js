@@ -105,8 +105,8 @@ exports.getUsers = (req, res, next) => {
 
 exports.postUser = (req, res, next) => {
     insertEventUser(req.params, req.body, req.headers)
-        .then((user) => {
-            res.status(201).send({user});
+        .then((event_user) => {
+            res.status(201).send({event_user});
         })
         .catch((error) => {
             next(error);
@@ -115,8 +115,8 @@ exports.postUser = (req, res, next) => {
 
 exports.patchUser = (req, res, next) => {
     updateEventUser(req.params, req.body, req.headers)
-        .then((user) => {
-            res.status(200).send({user});
+        .then((event_user) => {
+            res.status(200).send({event_user});
         })
         .catch((error) => {
             next(error);
@@ -125,8 +125,8 @@ exports.patchUser = (req, res, next) => {
 
 exports.deleteUser = (req, res, next) => {
     deleteEventUser(req.params, req.headers)
-        .then((user) => {
-            res.status(200).send({user});
+        .then((event_user) => {
+            res.status(200).send({event_user});
         })
         .catch((error) => {
             next(error);

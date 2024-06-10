@@ -5,7 +5,7 @@ const {
     selectGroupEvents,
     insertGroup,
     deleteGroup,
-    updateGroup
+    updateGroup, insertGroupJoin, deleteGroupJoin
 } = require("../models/groups.model");
 
 exports.getGroups = (req, res, next) => {
@@ -50,9 +50,9 @@ exports.getGroupEvents = (req, res, next) => {
 };
 
 exports.postGroup = (req, res, next) => {
-    insertGroup(req.params, req.body, req.headers)
+    insertGroup(req.body, req.headers)
         .then((group) => {
-            res.status(201).send(group);
+            res.status(201).send({group});
         })
         .catch((error) => {
             next(error);
@@ -62,7 +62,7 @@ exports.postGroup = (req, res, next) => {
 exports.patchGroup = (req, res, next) => {
     updateGroup(req.params, req.headers)
         .then((group) => {
-            res.status(200).send(group);
+            res.status(200).send({group});
         })
         .catch((error) => {
             next(error);
@@ -73,6 +73,26 @@ exports.deleteGroup = (req, res, next) => {
     deleteGroup(req.params, req.headers)
         .then(() => {
             res.status(204).send();
+        })
+        .catch((error) => {
+            next(error);
+        });
+};
+
+exports.postGroupJoin = (req, res, next) => {
+    insertGroupJoin(req.params, req.headers)
+        .then((group) => {
+            res.status(201).send({group});
+        })
+        .catch((error) => {
+            next(error);
+        });
+};
+
+exports.deleteGroupJoin = (req, res, next) => {
+    deleteGroupJoin(req.params, req.headers)
+        .then((group) => {
+            res.status(200).send({group});
         })
         .catch((error) => {
             next(error);

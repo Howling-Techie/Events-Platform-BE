@@ -9,7 +9,7 @@ exports.selectGroups = async (queries, headers) => {
     if (token) {
         try {
             const decoded = jwt.verify(token, process.env.JWT_KEY);
-            const user_id = decoded.user_id;
+            const user_id = decoded.id;
             const results = await client.query(`SELECT g.*
                                                 FROM groups g
                                                          LEFT JOIN user_groups ug ON ug.group_id = g.id AND ug.user_id = $1
@@ -35,13 +35,30 @@ exports.selectGroup = async (params, headers) => {
     const groupId = params.group_id;
     const tokenHeader = headers["authorization"];
     const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
-    await groupChecklist(groupId, token);
+    const userId = await groupChecklist(groupId, token);
 
     // Select the group
     const groupResult = await client.query(`SELECT *
                                             FROM groups
                                             WHERE id = $1`, [groupId]);
-    return groupResult.rows[0];
+    const group = groupResult.rows[0];
+    // Select the group owner
+    const ownerResult = await client.query(`SELECT id, username, display_name, about
+                                            FROM users
+                                            WHERE id = $1`, [group.owner_id]);
+    group.owner = ownerResult.rows[0];
+
+    // Check if user is in group
+    if (userId) {
+        const userInGroupResult = await client.query(`SELECT access_level
+                                                      FROM user_groups
+                                                      WHERE user_id = $1
+                                                        AND group_id = $2`, [userId, groupId]);
+        if (userInGroupResult.rows.length > 0) {
+            group.user_access_level = userInGroupResult.rows[0].access_level;
+        }
+    }
+    return group;
 };
 
 exports.insertGroup = async (body, headers) => {
@@ -51,7 +68,7 @@ exports.insertGroup = async (body, headers) => {
         try {
             // Verify user from JWT token
             const decoded = jwt.verify(token, process.env.JWT_KEY);
-            const userId = decoded.user_id;
+            const userId = decoded.id;
 
             // Insert group into the database
             const query = `
@@ -179,6 +196,71 @@ exports.selectGroupEvents = async (params, headers) => {
     return eventResults.rows;
 };
 
+exports.deleteGroupJoin = async (params, headers) => {
+    const groupId = params.group_id;
+    const tokenHeader = headers["authorization"];
+    console.log(groupId);
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
+    const userId = await groupChecklist(groupId, token);
+    // Select the group
+    const groupResult = await client.query(`SELECT *
+                                            FROM groups
+                                            WHERE id = $1`, [groupId]);
+    const group = groupResult.rows[0];
+
+    await client.query(`DELETE
+                        FROM user_groups
+                        WHERE user_id = $1
+                          AND group_id = $2`, [userId, groupId]);
+
+    // Select the group owner
+    const ownerResult = await client.query(`SELECT id, username, display_name, about
+                                            FROM users
+                                            WHERE id = $1`, [group.owner_id]);
+    group.owner = ownerResult.rows[0];
+    const userInGroupResult = await client.query(`SELECT access_level
+                                                  FROM user_groups
+                                                  WHERE user_id = $1
+                                                    AND group_id = $2`, [userId, groupId]);
+    if (userInGroupResult.rows.length > 0) {
+        group.user_access_level = userInGroupResult.rows[0].access_level;
+    }
+    return group;
+};
+
+exports.insertGroupJoin = async (params, headers) => {
+    const groupId = params.group_id;
+    const tokenHeader = headers["authorization"];
+    console.log(tokenHeader);
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
+    const userId = await groupChecklist(groupId, token);
+
+    // Select the group
+    const groupResult = await client.query(`SELECT *
+                                            FROM groups
+                                            WHERE id = $1`, [groupId]);
+    const group = groupResult.rows[0];
+
+    await client.query(`INSERT INTO user_groups (user_id, group_id, access_level)
+                        VALUES ($1, $2, 0)
+                        ON CONFLICT (user_id, group_id)
+                            DO NOTHING`, [userId, groupId]);
+
+    // Select the group owner
+    const ownerResult = await client.query(`SELECT id, username, display_name, about
+                                            FROM users
+                                            WHERE id = $1`, [group.owner_id]);
+    group.owner = ownerResult.rows[0];
+    const userInGroupResult = await client.query(`SELECT access_level
+                                                  FROM user_groups
+                                                  WHERE user_id = $1
+                                                    AND group_id = $2`, [userId, groupId]);
+    if (userInGroupResult.rows.length > 0) {
+        group.user_access_level = userInGroupResult.rows[0].access_level;
+    }
+    return group;
+};
+
 const checkGroupIsPublic = async (groupId) => {
     const query = `
         SELECT g.id,
@@ -201,7 +283,7 @@ const groupChecklist = async (groupId, token) => {
     if (token) {
         try {
             const decoded = jwt.verify(token, process.env.JWT_KEY);
-            userId = decoded.user_id;
+            userId = decoded.id;
         } catch {
             return Promise.reject({status: 401, msg: "Unauthorised"});
         }

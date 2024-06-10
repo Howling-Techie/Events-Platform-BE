@@ -97,10 +97,10 @@ async function createTables() {
     await client.query(`
         CREATE TABLE IF NOT EXISTS event_users
         (
-            id       SERIAL PRIMARY KEY,
             event_id INTEGER REFERENCES events (id) NOT NULL,
             user_id  INTEGER REFERENCES users (id)  NOT NULL,
-            status   INTEGER DEFAULT 0              NOT NULL
+            status   INTEGER DEFAULT 0              NOT NULL,
+            PRIMARY KEY (event_id, user_id)
         );
     `);
 

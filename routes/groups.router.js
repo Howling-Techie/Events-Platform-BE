@@ -5,7 +5,7 @@ const {
     getGroupEvents,
     getGroupUsers,
     getGroup,
-    patchGroup, postGroupJoin, deleteGroupJoin
+    patchGroup, postGroupJoin, deleteGroupJoin, deleteGroupUser, patchGroupUser
 } = require("../controllers/groups.controller");
 const groupsRouter = require("express").Router();
 
@@ -27,6 +27,11 @@ groupsRouter
 groupsRouter
     .route("/:group_id/users")
     .get(getGroupUsers);
+
+groupsRouter
+    .route("/:group_id/users/:user_id")
+    .patch(patchGroupUser)
+    .delete(deleteGroupUser);
 
 groupsRouter
     .route("/:group_id/join")

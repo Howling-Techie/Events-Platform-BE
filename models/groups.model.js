@@ -167,13 +167,51 @@ exports.selectGroupUsers = async (params, headers) => {
 
     // Select users for the group
     const query = `
-        SELECT u.username, u.display_name, u.avatar, ug.access_level
+        SELECT u.id, u.username, u.display_name, u.avatar, ug.access_level
         FROM user_groups ug
                  JOIN users u ON ug.user_id = u.id
         WHERE ug.group_id = $1;
     `;
     const res = await client.query(query, [groupId]);
-    return res.rows;
+    return res.rows.map(r => {
+        return {
+            user: {id: r.id, username: r.username, display_name: r.display_name, avatar: r.avatar},
+            user_access_level: r.access_level
+        };
+    });
+};
+
+exports.updateGroupUser = async (params, body, headers) => {
+    const {group_id, user_id} = params;
+    const {status} = body;
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
+    await groupChecklist(group_id, token);
+
+    // Update user_groups info
+    const updateResult = await client.query(`
+        UPDATE user_groups
+        SET access_level = $1
+        WHERE group_id = $2
+          AND user_id = $3
+        RETURNING *;
+    `, [status, group_id, user_id]);
+    return updateResult.rows[0];
+};
+
+exports.deleteGroupUser = async (params, headers) => {
+    const {group_id, user_id} = params;
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
+    await groupChecklist(group_id, token);
+
+    // Delete user_groups user from table
+    await client.query(`
+        DELETE
+        FROM user_groups
+        WHERE user_id = $1
+          AND group_id = $2;
+    `, [user_id, group_id]);
 };
 
 exports.selectGroupEvents = async (params, headers) => {

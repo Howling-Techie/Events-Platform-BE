@@ -78,18 +78,17 @@ const checkUserCanAccessGroup = async (groupId, userId) => {
                g.visibility,
                ug.user_id,
                ug.access_level
-        FROM events e
-                 LEFT JOIN public.groups g on g.id = e.group_id
-                 LEFT OUTER JOIN public.user_groups ug on g.id = ug.group_id
-        WHERE e.id = $1;
+        FROM groups g
+                 LEFT JOIN public.user_groups ug on g.id = ug.group_id
+        WHERE g.id = $1;
     `;
     const res = await client.query(query, [groupId]);
-    // If group is public, return true
-    if (res.rows[0].visibility === 0) {
-        return true;
-    }
     // If the user owns the group, return true
     if (res.rows[0].owner_id === userId) {
+        return true;
+    }
+    // If group is public, return true
+    if (res.rows[0].visibility === 0) {
         return true;
     }
     // If the user is in the group, check their access level

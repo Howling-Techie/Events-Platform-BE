@@ -1,10 +1,5 @@
 const {
-    getUsers,
-    getUser,
-    postUser,
-    patchUser,
-    deleteUser,
-    getUserGroups
+    getUsers, getUser, postUser, patchUser, deleteUser, getUserGroups, patchUserNote, postUserFollow, deleteUserFollow
 } = require("../controllers/users.controller");
 
 const usersRouter = require("express").Router();
@@ -15,13 +10,22 @@ usersRouter
     .post(postUser);
 
 usersRouter
-    .route("/:user_id")
+    .route("/:username")
     .get(getUser)
     .patch(patchUser)
     .delete(deleteUser);
 
 usersRouter
-    .route("/:user_id/groups")
+    .route("/:username/groups")
     .get(getUserGroups);
+
+usersRouter
+    .route("/:username/note")
+    .patch(patchUserNote);
+
+usersRouter
+    .route("/:username/follow")
+    .post(postUserFollow)
+    .delete(deleteUserFollow);
 
 module.exports = usersRouter;

@@ -191,7 +191,7 @@ exports.selectUserGroups = async (params, headers) => {
     if (token) {
         try {
             const decoded = jwt.verify(token, process.env.JWT_KEY);
-            const user_id = decoded.user_id;
+            const user_id = decoded.id;
             const results = await client.query(`SELECT g.*
                                                 FROM groups g
                                                          INNER JOIN user_groups ug1 ON ug1.group_id = g.id

@@ -195,7 +195,7 @@ exports.selectUserGroups = async (params, headers) => {
             const results = await client.query(`SELECT g.*
                                                 FROM groups g
                                                          INNER JOIN user_groups ug1 ON ug1.group_id = g.id
-                                                         INNER JOIN users u1 ON ug1.user_id = u1.id = $1
+                                                         INNER JOIN users u1 ON ug1.user_id = u1.id AND u1.username = $1
                                                          LEFT JOIN user_groups ug2 ON ug2.group_id = g.id AND ug2.user_id = $2
                                                 WHERE (
                                                           (g.visibility = 0)

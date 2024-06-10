@@ -92,7 +92,19 @@ exports.insertEvent = async (body, headers) => {
         try {
             // Verify user from JWT token
             const decoded = jwt.verify(token, process.env.JWT_KEY);
-            const userId = decoded.user_id;
+            const userId = decoded.id;
+
+            // Check for required fields
+            const {group_id, start_time, title, description = "", visibility = 0} = body;
+            if (!group_id) {
+                return Promise.reject({status: 400, msg: "group_id is required"});
+            }
+            if (!start_time) {
+                return Promise.reject({status: 400, msg: "start_time is required"});
+            }
+            if (!title) {
+                return Promise.reject({status: 400, msg: "title is required"});
+            }
 
             // Insert event into the database
             const query = `
@@ -101,12 +113,12 @@ exports.insertEvent = async (body, headers) => {
                 RETURNING *;
             `;
             const values = [
-                body.group_id,
+                group_id,
                 userId,
-                body.visibility || 0,
-                body.start_time,
-                body.title,
-                body.description
+                visibility,
+                start_time,
+                title,
+                description
             ];
 
             const res = await client.query(query, values);

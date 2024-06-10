@@ -36,7 +36,7 @@ exports.getEvent = (req, res, next) => {
 exports.postEvent = (req, res, next) => {
     insertEvent(req.body, req.headers)
         .then((event) => {
-            res.status(201).send(event);
+            res.status(201).send({event});
         })
         .catch((error) => {
             next(error);

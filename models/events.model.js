@@ -9,7 +9,7 @@ exports.selectEvents = async (queries, headers) => {
     if (token) {
         try {
             const decoded = jwt.verify(token, process.env.JWT_KEY);
-            const user_id = decoded.user_id;
+            const user_id = decoded.id;
             const results = await client.query(`SELECT e.*
                                                 FROM events e
                                                          LEFT JOIN groups g ON e.group_id = g.id
@@ -18,8 +18,17 @@ exports.selectEvents = async (queries, headers) => {
                                                           (e.visibility = 0 AND g.visibility = 0)
                                                               OR
                                                           (ug.user_id = $1 AND e.visibility <= ug.access_level)
+                                                              OR
+                                                          (g.owner_id = $1)
                                                           );`, [user_id]);
-            return results.rows;
+            const events = results.rows;
+            for (const event of events) {
+                const groupResult = await client.query(`SELECT *
+                                                        FROM groups
+                                                        WHERE id = $1`, [event.group_id]);
+                event.group = groupResult.rows[0];
+            }
+            return events;
         } catch {
             return Promise.reject({status: 401, msg: "Unauthorised"});
         }
@@ -45,17 +54,34 @@ exports.selectEvent = async (params, headers) => {
     const eventId = params.event_id;
     const tokenHeader = headers["authorization"];
     const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
-    await eventChecklist(eventId, token);
+    const userId = await eventChecklist(eventId, token);
 
     // Select the event
     const eventResult = await client.query(`SELECT *
                                             FROM events
                                             WHERE id = $1`, [eventId]);
     const event = eventResult.rows[0];
+    // Get Group info
     const groupResult = await client.query(`SELECT *
                                             FROM groups
                                             WHERE id = $1`, [event.group_id]);
     event.group = groupResult.rows[0];
+    // Get Creator info
+    const creatorResult = await client.query(`SELECT id, username, display_name, avatar, about
+                                              FROM users
+                                              WHERE id = $1`, [event.created_by]);
+    // Get user status
+    if (userId) {
+        const userInGroupResult = await client.query(`SELECT status
+                                                      FROM event_users
+                                                      WHERE user_id = $1
+                                                        AND event_id = $2`, [userId, eventId]);
+        if (userInGroupResult.rows.length > 0) {
+            event.user_status = userInGroupResult.rows[0].status;
+        }
+    }
+
+    event.creator = creatorResult.rows[0];
     return event;
 };
 
@@ -246,10 +272,10 @@ exports.selectEventUsers = async (params, headers) => {
 
 exports.insertEventUser = async (params, body, headers) => {
     const eventId = params.event_id;
-    const userIdToInsert = body.user_id;
     const tokenHeader = headers["authorization"];
     const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
-    await eventChecklist(eventId, token);
+    const userId = await eventChecklist(eventId, token);
+    const userIdToInsert = body.user_id ?? userId;
 
     // Check if invited user has permission to see the event
     await checkUserCanAccessEvent(eventId, userIdToInsert);
@@ -258,9 +284,11 @@ exports.insertEventUser = async (params, body, headers) => {
     const query = `
         INSERT INTO event_users (event_id, user_id, status)
         VALUES ($1, $2, $3)
+        ON CONFLICT (event_id, user_id)
+            DO NOTHING
         RETURNING *;
     `;
-    const values = [eventId, userIdToInsert, body.status || 0];
+    const values = [eventId, userIdToInsert, body.user_id ? (body.status || 0) : 0];
 
     const res = await client.query(query, values);
     return res.rows[0];
@@ -303,15 +331,15 @@ exports.updateEventUser = async (params, headers) => {
     const values = [params.status, eventUser.id];
 
     const res = await client.query(updateQuery, values);
-    return res.rows[0];
+    return res.rows[0].status;
 };
 
 exports.deleteEventUser = async (params, headers) => {
     const eventId = params.event_id;
-    const userIdToDelete = params.user_id;
     const tokenHeader = headers["authorization"];
     const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     const userId = await eventChecklist(eventId, token);
+    const userIdToDelete = params.user_id ?? userId;
 
     // Get event and user associated with event_user record
     const selectQuery = `
@@ -323,7 +351,7 @@ exports.deleteEventUser = async (params, headers) => {
     `;
     const selectRes = await client.query(selectQuery, [eventId, userIdToDelete]);
     if (selectRes.rows.length === 0) {
-        return Promise.reject({status: 404, msg: "Not Found"});
+        return {user_id: userId, event_id: eventId, status: undefined};
     }
     const eventUser = selectRes.rows[0];
 
@@ -337,10 +365,12 @@ exports.deleteEventUser = async (params, headers) => {
     const deleteQuery = `
         DELETE
         FROM event_users
-        WHERE id = $1
+        WHERE user_id = $1
+          AND event_id = $2
         RETURNING *;
     `;
-    await client.query(deleteQuery, [eventUser.id]);
+    await client.query(deleteQuery, [userId, eventId]);
+    return {user_id: userId, event_id: eventId, status: undefined};
 };
 
 const checkEventIsPublic = async (eventId) => {
@@ -368,7 +398,7 @@ const eventChecklist = async (eventId, token) => {
     if (token) {
         try {
             const decoded = jwt.verify(token, process.env.JWT_KEY);
-            userId = decoded.user_id;
+            userId = decoded.id;
         } catch {
             return Promise.reject({status: 401, msg: "Unauthorised"});
         }

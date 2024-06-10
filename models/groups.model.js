@@ -82,9 +82,12 @@ exports.insertGroup = async (body, headers) => {
                 body.visibility || 0,
                 body.about
             ];
-
             const res = await client.query(query, values);
-            return res.rows[0];
+            const group = res.rows[0];
+            // Add owner to list of users in group
+            await client.query(`INSERT INTO user_groups(user_id, group_id, access_level)
+                                VALUES ($1, $2, 3)`, [userId, group.id]);
+            return group;
         } catch {
             return Promise.reject({status: 401, msg: "Unauthorised"});
         }

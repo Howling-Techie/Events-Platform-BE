@@ -7,7 +7,7 @@ module.exports = [
     },
     {
         "name": "Designers Group",
-        "visibility": 1,
+        "visibility": 2,
         "about": "A group for graphic designers.",
         "owner_id": 2
     },

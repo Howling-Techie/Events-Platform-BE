@@ -87,6 +87,8 @@ async function createTables() {
             created_by   INTEGER REFERENCES users (id)         NOT NULL,
             visibility   INTEGER     DEFAULT 0                 NOT NULL,
             start_time   TIMESTAMPTZ,
+            location     VARCHAR(255),
+            google_link  VARCHAR,
             time_created TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
             title        VARCHAR(255)                          NOT NULL,
             description  TEXT

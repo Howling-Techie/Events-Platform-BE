@@ -10,7 +10,7 @@ const {
     getUsers,
     postUser,
     patchUser,
-    deleteUser
+    deleteUser, patchUserPayment
 } = require("../controllers/events.controller");
 const eventsRouter = require("express").Router();
 
@@ -41,6 +41,10 @@ eventsRouter
     .route("/:event_id/users/:user_id")
     .patch(patchUser)
     .delete(deleteUser);
+
+eventsRouter
+    .route("/:event_id/users/:user_id/payment")
+    .patch(patchUserPayment);
 
 
 module.exports = eventsRouter;

@@ -82,16 +82,18 @@ async function createTables() {
     await client.query(`
         CREATE TABLE IF NOT EXISTS events
         (
-            id           SERIAL PRIMARY KEY,
-            group_id     INTEGER REFERENCES groups (id),
-            created_by   INTEGER REFERENCES users (id)         NOT NULL,
-            visibility   INTEGER     DEFAULT 0                 NOT NULL,
-            start_time   TIMESTAMPTZ,
-            location     VARCHAR(255),
-            google_link  VARCHAR,
-            time_created TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
-            title        VARCHAR(255)                          NOT NULL,
-            description  TEXT
+            id                SERIAL PRIMARY KEY,
+            group_id          INTEGER REFERENCES groups (id),
+            created_by        INTEGER REFERENCES users (id)           NOT NULL,
+            visibility        INTEGER       DEFAULT 0                 NOT NULL,
+            start_time        TIMESTAMPTZ,
+            location          VARCHAR(255),
+            google_link       VARCHAR,
+            time_created      TIMESTAMPTZ   DEFAULT CURRENT_TIMESTAMP NOT NULL,
+            title             VARCHAR(255)                            NOT NULL,
+            description       TEXT,
+            price             NUMERIC(6, 2) DEFAULT 0,
+            pay_what_you_want BOOLEAN       DEFAULT FALSE
         );
     `);
 
@@ -99,9 +101,11 @@ async function createTables() {
     await client.query(`
         CREATE TABLE IF NOT EXISTS event_users
         (
-            event_id INTEGER REFERENCES events (id) NOT NULL,
-            user_id  INTEGER REFERENCES users (id)  NOT NULL,
-            status   INTEGER DEFAULT 0              NOT NULL,
+            event_id    INTEGER REFERENCES events (id) NOT NULL,
+            user_id     INTEGER REFERENCES users (id)  NOT NULL,
+            status      INTEGER       DEFAULT 0        NOT NULL,
+            paid        BOOLEAN       DEFAULT FALSE,
+            amount_paid NUMERIC(6, 2) DEFAULT 0,
             PRIMARY KEY (event_id, user_id)
         );
     `);

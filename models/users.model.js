@@ -6,25 +6,21 @@ const {hash} = require("bcrypt");
 const saltRounds = 10;
 
 exports.selectUsers = async (queries, headers) => {
-    const {username, displayName} = queries;
+    const {search} = queries;
     const tokenHeader = headers["authorization"];
-    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
-    if (token) {
-        try {
-            const decoded = jwt.verify(token, process.env.JWT_KEY);
-            const userResult = await client.query(`SELECT username, display_name, avatar, about
-                                                   FROM users`, []);
-            return userResult.rows;
-        } catch {
-            const userResult = await client.query(`SELECT username, display_name, avatar, about
-                                                   FROM users`, []);
-            return userResult.rows;
-        }
+    let userResult;
+
+    if (search) {
+        userResult = await client.query(`SELECT id, username, display_name, avatar, about
+                                         FROM users
+                                         WHERE username ILIKE $1
+                                            OR display_name ILIKE $1`, [`%${search}%`]);
     } else {
-        const userResult = await client.query(`SELECT username, display_name, avatar, about
-                                               FROM users`, []);
-        return userResult.rows;
+        userResult = await client.query(`SELECT id, username, display_name, avatar, about
+                                         FROM users`, []);
     }
+
+    return userResult.rows;
 };
 
 exports.selectUser = async (params, headers) => {
@@ -66,13 +62,13 @@ exports.selectUser = async (params, headers) => {
                 return user;
             }
         } catch {
-            const userResult = await client.query(`SELECT username, display_name, avatar, about
+            const userResult = await client.query(`SELECT id, username, display_name, avatar, about
                                                    FROM users
                                                    WHERE username = $1`, [username]);
             return userResult.rows[0];
         }
     } else {
-        const userResult = await client.query(`SELECT username, display_name, avatar, about
+        const userResult = await client.query(`SELECT id, username, display_name, avatar, about
                                                FROM users
                                                WHERE username = $1`, [username]);
         return userResult.rows[0];

@@ -199,6 +199,23 @@ exports.updateGroupUser = async (params, body, headers) => {
     return updateResult.rows[0];
 };
 
+exports.insertGroupUser = async (params, body, headers) => {
+    const {group_id, user_id} = params;
+    const {status} = body;
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
+    await groupChecklist(group_id, token);
+
+    // Update user_groups info
+    const updateResult = await client.query(`
+        INSERT INTO user_groups (user_id, group_id, access_level)
+        VALUES ($3, $2, $1)
+        ON CONFLICT DO NOTHING
+        RETURNING *;
+    `, [status, group_id, user_id]);
+    return updateResult.rows[0];
+};
+
 exports.deleteGroupUser = async (params, headers) => {
     const {group_id, user_id} = params;
     const tokenHeader = headers["authorization"];

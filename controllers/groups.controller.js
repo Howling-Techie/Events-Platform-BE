@@ -79,6 +79,16 @@ exports.patchGroupUser = (req, res, next) => {
         });
 };
 
+exports.postGroupUser = (req, res, next) => {
+    updateGroupUser(req.params, req.body, req.headers)
+        .then((status) => {
+            res.status(200).send({status});
+        })
+        .catch((error) => {
+            next(error);
+        });
+};
+
 exports.deleteGroupUser = (req, res, next) => {
     deleteGroupUser(req.params, req.headers)
         .then(() => {

@@ -5,7 +5,7 @@ const {
     selectGroupEvents,
     insertGroup,
     deleteGroup,
-    updateGroup, insertGroupJoin, deleteGroupJoin, updateGroupUser, deleteGroupUser
+    updateGroup, insertGroupJoin, deleteGroupJoin, updateGroupUser, deleteGroupUser, insertGroupUser
 } = require("../models/groups.model");
 
 exports.getGroups = (req, res, next) => {
@@ -30,7 +30,7 @@ exports.getGroup = (req, res, next) => {
 };
 
 exports.getGroupUsers = (req, res, next) => {
-    selectGroupUsers(req.params, req.headers)
+    selectGroupUsers(req.params, req.query, req.headers)
         .then((users) => {
             res.status(200).send({users});
         })
@@ -71,6 +71,16 @@ exports.patchGroup = (req, res, next) => {
 
 exports.patchGroupUser = (req, res, next) => {
     updateGroupUser(req.params, req.body, req.headers)
+        .then((status) => {
+            res.status(200).send({status});
+        })
+        .catch((error) => {
+            next(error);
+        });
+};
+
+exports.postGroupUser = (req, res, next) => {
+    insertGroupUser(req.params, req.body, req.headers)
         .then((status) => {
             res.status(200).send({status});
         })

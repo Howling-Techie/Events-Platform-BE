@@ -159,21 +159,38 @@ exports.deleteGroup = async (params, headers) => {
     `, [groupId]);
 };
 
-exports.selectGroupUsers = async (params, headers) => {
+exports.selectGroupUsers = async (params, queries, headers) => {
+    const {search} = queries;
     const groupId = params.group_id;
     const tokenHeader = headers["authorization"];
     const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     await groupChecklist(groupId, token);
 
     // Select users for the group
-    const query = `
-        SELECT u.id, u.username, u.display_name, u.avatar, ug.access_level
-        FROM user_groups ug
-                 JOIN users u ON ug.user_id = u.id
-        WHERE ug.group_id = $1;
-    `;
-    const res = await client.query(query, [groupId]);
-    return res.rows.map(r => {
+    let users;
+    if (search) {
+        const query = `
+            SELECT u.id, u.username, u.display_name, u.avatar, ug.access_level
+            FROM user_groups ug
+                     JOIN users u ON ug.user_id = u.id
+            WHERE ug.group_id = $1
+              AND (u.username ILIKE $2
+                OR u.display_name ILIKE $2);`;
+
+        const res = await client.query(query, [groupId, `%${search}%`]);
+        users = res.rows;
+        console.log(groupId);
+    } else {
+        const query = `
+            SELECT u.id, u.username, u.display_name, u.avatar, ug.access_level
+            FROM user_groups ug
+                     JOIN users u ON ug.user_id = u.id
+            WHERE ug.group_id = $1;
+        `;
+        const res = await client.query(query, [groupId]);
+        users = res.rows;
+    }
+    return users.map(r => {
         return {
             user: {id: r.id, username: r.username, display_name: r.display_name, avatar: r.avatar},
             user_access_level: r.access_level
@@ -194,6 +211,23 @@ exports.updateGroupUser = async (params, body, headers) => {
         SET access_level = $1
         WHERE group_id = $2
           AND user_id = $3
+        RETURNING *;
+    `, [status, group_id, user_id]);
+    return updateResult.rows[0];
+};
+
+exports.insertGroupUser = async (params, body, headers) => {
+    const {group_id, user_id} = params;
+    const {status} = body;
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
+    await groupChecklist(group_id, token);
+
+    // Update user_groups info
+    const updateResult = await client.query(`
+        INSERT INTO user_groups (user_id, group_id, access_level)
+        VALUES ($3, $2, $1)
+        ON CONFLICT (user_id, group_id) DO NOTHING
         RETURNING *;
     `, [status, group_id, user_id]);
     return updateResult.rows[0];

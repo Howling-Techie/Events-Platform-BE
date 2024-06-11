@@ -287,7 +287,7 @@ exports.insertEventUser = async (params, body, headers) => {
     const tokenHeader = headers["authorization"];
     const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     const userId = await eventChecklist(eventId, token);
-    const userIdToInsert = body.user_id ?? userId;
+    const userIdToInsert = params.user_id;
 
     // Check if invited user has permission to see the event
     await checkUserCanAccessEvent(eventId, userIdToInsert);
@@ -300,7 +300,7 @@ exports.insertEventUser = async (params, body, headers) => {
             DO NOTHING
         RETURNING *;
     `;
-    const values = [eventId, userIdToInsert, body.user_id ? (body.status || 0) : 0];
+    const values = [eventId, userIdToInsert, userId ? (body.status || 0) : 0];
 
     const res = await client.query(query, values);
     return res.rows[0];

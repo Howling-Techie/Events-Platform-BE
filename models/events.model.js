@@ -74,12 +74,12 @@ exports.selectEvent = async (params, headers) => {
                                               WHERE id = $1`, [event.created_by]);
     // Get user status
     if (userId) {
-        const userInGroupResult = await client.query(`SELECT status
+        const userInGroupResult = await client.query(`SELECT status, paid, amount_paid
                                                       FROM event_users
                                                       WHERE user_id = $1
                                                         AND event_id = $2`, [userId, eventId]);
         if (userInGroupResult.rows.length > 0) {
-            event.user_status = userInGroupResult.rows[0].status;
+            event.status = userInGroupResult.rows[0];
         }
     }
 
@@ -288,13 +288,19 @@ exports.selectEventUsers = async (params, headers) => {
 
     // Select users for the event
     const query = `
-        SELECT u.username, u.display_name, u.avatar, eu.status
+        SELECT u.id, u.username, u.display_name, u.avatar, eu.status, eu.amount_paid, eu.paid
         FROM event_users eu
                  JOIN users u ON eu.user_id = u.id
         WHERE eu.event_id = $1;
     `;
     const res = await client.query(query, [eventId]);
-    return res.rows;
+    const users = res.rows;
+    return users.map(r => {
+        return {
+            user: {id: r.id, username: r.username, display_name: r.display_name, avatar: r.avatar},
+            status: {status: r.status, paid: r.paid, amount_paid: r.amount_paid}
+        };
+    });
 };
 
 exports.insertEventUser = async (params, body, headers) => {
@@ -302,7 +308,7 @@ exports.insertEventUser = async (params, body, headers) => {
     const tokenHeader = headers["authorization"];
     const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     const userId = await eventChecklist(eventId, token);
-    const userIdToInsert = params.user_id;
+    const userIdToInsert = params.user_id ?? userId;
 
     // Check if invited user has permission to see the event
     await checkUserCanAccessEvent(eventId, userIdToInsert);
@@ -321,9 +327,35 @@ exports.insertEventUser = async (params, body, headers) => {
     return res.rows[0];
 };
 
-exports.updateEventUser = async (params, headers) => {
+exports.updateEventPayment = async (params, body, headers) => {
+    const {event_id, user_id} = params;
+    const {amount} = body;
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
+    await eventChecklist(event_id, token);
+
+    // Check if invited user has permission to see the event
+    await checkUserCanAccessEvent(event_id, user_id);
+
+    // Insert user into the event
+    const query = `
+        UPDATE event_users
+        SET amount_paid = $1,
+            paid        = true
+        WHERE user_id = $2
+          AND event_id = $3
+        RETURNING *;
+    `;
+    const values = [amount, user_id, event_id];
+
+    const res = await client.query(query, values);
+    return res.rows[0];
+};
+
+exports.updateEventUser = async (params, body, headers) => {
     const eventId = params.event_id;
     const userIdToUpdate = params.user_id;
+    const status = body.status;
     const tokenHeader = headers["authorization"];
     const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     const userId = await eventChecklist(eventId, token);
@@ -336,7 +368,7 @@ exports.updateEventUser = async (params, headers) => {
         WHERE eu.event_id = $1
           and eu.user_id = $2;
     `;
-    const selectRes = await client.query(selectQuery, [eventId, userId]);
+    const selectRes = await client.query(selectQuery, [eventId, userIdToUpdate]);
     if (selectRes.rows.length === 0) {
         return Promise.reject({status: 404, msg: "Not Found"});
     }
@@ -352,13 +384,14 @@ exports.updateEventUser = async (params, headers) => {
     const updateQuery = `
         UPDATE event_users
         SET status = $1
-        WHERE id = $2
+        WHERE event_id = $2
+          AND user_id = $3
         RETURNING *;
     `;
-    const values = [params.status, eventUser.id];
+    const values = [status, eventUser.event_id, eventUser.user_id];
 
     const res = await client.query(updateQuery, values);
-    return res.rows[0].status;
+    return res.rows[0];
 };
 
 exports.deleteEventUser = async (params, headers) => {

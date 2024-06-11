@@ -10,7 +10,7 @@ const {
     selectEventUsers,
     insertEventUser,
     updateEventUser,
-    deleteEventUser
+    deleteEventUser, updateEventPayment
 } = require("../models/events.model");
 
 exports.getEvents = (req, res, next) => {
@@ -115,6 +115,16 @@ exports.postUser = (req, res, next) => {
 
 exports.patchUser = (req, res, next) => {
     updateEventUser(req.params, req.body, req.headers)
+        .then((event_user) => {
+            res.status(200).send({event_user});
+        })
+        .catch((error) => {
+            next(error);
+        });
+};
+
+exports.patchUserPayment = (req, res, next) => {
+    updateEventPayment(req.params, req.body, req.headers)
         .then((event_user) => {
             res.status(200).send({event_user});
         })

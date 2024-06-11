@@ -4,14 +4,12 @@ var path = require("path");
 var cookieParser = require("cookie-parser");
 var logger = require("morgan");
 
-var indexRouter = require("./routes/index");
-var usersRouter = require("./routes/users");
-
 var app = express();
 const apiRouter = require("./routes/api.router");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 require("dotenv").config();
+const stripe = require("stripe")(process.env.STRIPE_SECRET);
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -29,8 +27,29 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use("/api", apiRouter);
-app.use("/", indexRouter);
-app.use("/users", usersRouter);
+
+app.post("/create-payment-intent", async (req, res) => {
+    const {amount, eventId, paymentMethodId} = req.body;
+
+    try {
+        const paymentIntent = await stripe.paymentIntents.create({
+            amount: amount * 100, // Stripe amount is in pennies
+            currency: "gbp",
+            payment_method: paymentMethodId,
+            confirm: true,
+            metadata: {eventId},
+            automatic_payment_methods: {
+                enabled: true,
+                allow_redirects: "never",
+            },
+        });
+
+        res.json({clientSecret: paymentIntent.client_secret});
+    } catch (error) {
+        console.error(error);
+        res.status(500).send({error: error.message});
+    }
+});
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {

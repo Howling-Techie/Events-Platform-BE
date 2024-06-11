@@ -1,6 +1,8 @@
 const client = require("../database/connection");
 const jwt = require("jsonwebtoken");
 const {checkIfExists, checkUserCanAccessEvent} = require("./utils.model");
+const {GoogleAuth} = require("google-auth-library");
+const {google} = require("googleapis");
 
 exports.selectEvents = async (queries, headers) => {
     const tokenHeader = headers["authorization"];
@@ -95,7 +97,7 @@ exports.insertEvent = async (body, headers) => {
             const userId = decoded.id;
 
             // Check for required fields
-            const {group_id, start_time, title, description = "", visibility = 0} = body;
+            const {group_id, start_time, title, description = "", location = "", visibility = 0} = body;
             if (!group_id) {
                 return Promise.reject({status: 400, msg: "group_id is required"});
             }
@@ -106,10 +108,21 @@ exports.insertEvent = async (body, headers) => {
                 return Promise.reject({status: 400, msg: "title is required"});
             }
 
+            // Generate google cal event
+            console.log("genning google event");
+            const googleCalEvent = await generateGoogleCalEvent({
+                group_id,
+                location,
+                visibility,
+                start_time,
+                title,
+                description
+            });
             // Insert event into the database
             const query = `
-                INSERT INTO events (group_id, created_by, visibility, start_time, title, description)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                INSERT INTO events (group_id, created_by, visibility, start_time, title, description, location,
+                                    google_link)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 RETURNING *;
             `;
             const values = [
@@ -118,7 +131,9 @@ exports.insertEvent = async (body, headers) => {
                 visibility,
                 start_time,
                 title,
-                description
+                description,
+                location,
+                googleCalEvent.htmlLink
             ];
 
             const res = await client.query(query, values);
@@ -430,4 +445,31 @@ const eventChecklist = async (eventId, token) => {
         await checkEventIsPublic(eventId);
     }
     return userId;
+};
+
+
+const generateGoogleCalEvent = async (event) => {
+    const keyFile = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    const auth = new GoogleAuth({
+        keyFile: keyFile,
+        scopes: "https://www.googleapis.com/auth/calendar",
+    });
+
+    const cal = google.calendar({version: "v3", auth: auth});
+    const eventData = {
+        summary: event.title,
+        location: event.location || "",
+        description: event.description || "",
+        start: {
+            dateTime: new Date(event.start_time).toISOString(),
+            timeZone: "UTC",
+        },
+        end: {
+            dateTime: new Date(new Date(event.start_time).getTime() + 60 * 60 * 1000).toISOString(), // 1 hour later
+            timeZone: "UTC",
+        },
+    };
+    const googleEvent = await cal.events.insert({calendarId: process.env.GOOGLE_CALENDAR_ID, resource: eventData});
+
+    return googleEvent.data;
 };

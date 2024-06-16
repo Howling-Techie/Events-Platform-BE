@@ -156,8 +156,8 @@ exports.insertEvent = async (body, headers) => {
 
             const res = await client.query(query, values);
 
-            await client.query(`INSERT INTO event_users (event_id, user_id, status)
-                                VALUES ($1, $2, 3);`, [res.rows[0].id, userId]);
+            await client.query(`INSERT INTO event_users (event_id, user_id, status, paid, amount_paid)
+                                VALUES ($1, $2, 3, true, $3);`, [res.rows[0].id, userId, price]);
 
             return res.rows[0];
         } catch {

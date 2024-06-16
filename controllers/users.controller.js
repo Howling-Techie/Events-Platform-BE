@@ -11,7 +11,7 @@ const {
 } = require("../models/users.model");
 
 exports.getUsers = (req, res, next) => {
-    selectUsers(req.query, req.headers)
+    selectUsers(req.query)
         .then((users) => {
             res.status(200).send({users});
         })
@@ -31,7 +31,7 @@ exports.getUser = (req, res, next) => {
 };
 
 exports.postUser = (req, res, next) => {
-    insertUser(req.body, req.headers)
+    insertUser(req.body)
         .then((user) => {
             res.status(201).send(user);
         })

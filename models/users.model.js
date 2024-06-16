@@ -5,9 +5,8 @@ const {hash} = require("bcrypt");
 
 const saltRounds = 10;
 
-exports.selectUsers = async (queries, headers) => {
+exports.selectUsers = async (queries) => {
     const {search} = queries;
-    const tokenHeader = headers["authorization"];
     let userResult;
 
     if (search) {
@@ -75,7 +74,7 @@ exports.selectUser = async (params, headers) => {
     }
 };
 
-exports.insertUser = async (body, headers) => {
+exports.insertUser = async (body) => {
     try {
         // Check if username or email already exist
         const userExistsQuery = "SELECT * FROM users WHERE username = $1 OR email = $2";
@@ -206,7 +205,7 @@ exports.selectUserGroups = async (params, headers) => {
         const results = await client.query(`SELECT g.*
                                             FROM groups g
                                                      INNER JOIN user_groups ug1 ON ug1.group_id = g.id
-                                                     INNER JOIN users u1 ON ug1.user_id = u1.id = $1
+                                                     INNER JOIN users u1 ON ug1.user_id = u1.id AND u1.username = $1
                                             WHERE (
                                                       (g.visibility = 0)
                                                       );`, [params.username]);

@@ -40,7 +40,7 @@ exports.getGroupUsers = (req, res, next) => {
 };
 
 exports.getGroupEvents = (req, res, next) => {
-    selectGroupEvents(req.params, req.query, req.headers)
+    selectGroupEvents(req.params, req.headers)
         .then((events) => {
             res.status(200).send({events});
         })

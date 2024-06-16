@@ -104,7 +104,16 @@ exports.insertEvent = async (body, headers) => {
             const userId = decoded.id;
 
             // Check for required fields
-            const {group_id, start_time, title, description = "", location = "", visibility = 0} = body;
+            const {
+                group_id,
+                start_time,
+                title,
+                description = "",
+                location = "",
+                visibility = 0,
+                price = 0,
+                pay_what_you_want = false
+            } = body;
             if (!group_id) {
                 return Promise.reject({status: 400, msg: "group_id is required"});
             }
@@ -128,8 +137,8 @@ exports.insertEvent = async (body, headers) => {
             // Insert event into the database
             const query = `
                 INSERT INTO events (group_id, created_by, visibility, start_time, title, description, location,
-                                    google_link)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                                    google_link, price, pay_what_you_want)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 RETURNING *;
             `;
             const values = [
@@ -140,7 +149,9 @@ exports.insertEvent = async (body, headers) => {
                 title,
                 description,
                 location,
-                googleCalEvent.htmlLink
+                googleCalEvent.htmlLink,
+                price,
+                pay_what_you_want
             ];
 
             const res = await client.query(query, values);

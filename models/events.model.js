@@ -28,6 +28,13 @@ exports.selectEvents = async (queries, headers) => {
                 const groupResult = await client.query(`SELECT *
                                                         FROM groups
                                                         WHERE id = $1`, [event.group_id]);
+                const userInEventResult = await client.query(`SELECT status, paid, amount_paid
+                                                              FROM event_users
+                                                              WHERE user_id = $1
+                                                                AND event_id = $2`, [user_id, event.id]);
+                if (userInEventResult.rows.length > 0) {
+                    event.status = userInEventResult.rows[0];
+                }
                 event.group = groupResult.rows[0];
             }
             return events;
@@ -74,12 +81,12 @@ exports.selectEvent = async (params, headers) => {
                                               WHERE id = $1`, [event.created_by]);
     // Get user status
     if (userId) {
-        const userInGroupResult = await client.query(`SELECT status, paid, amount_paid
+        const userInEventResult = await client.query(`SELECT status, paid, amount_paid
                                                       FROM event_users
                                                       WHERE user_id = $1
                                                         AND event_id = $2`, [userId, eventId]);
-        if (userInGroupResult.rows.length > 0) {
-            event.status = userInGroupResult.rows[0];
+        if (userInEventResult.rows.length > 0) {
+            event.status = userInEventResult.rows[0];
         }
     }
 

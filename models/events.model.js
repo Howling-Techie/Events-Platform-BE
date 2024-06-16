@@ -155,6 +155,10 @@ exports.insertEvent = async (body, headers) => {
             ];
 
             const res = await client.query(query, values);
+
+            await client.query(`INSERT INTO event_users (event_id, user_id, status)
+                                VALUES ($1, $2, 3);`, [res.rows[0].id, userId]);
+
             return res.rows[0];
         } catch {
             return Promise.reject({status: 401, msg: "Unauthorised"});

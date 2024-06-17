@@ -1,20 +1,14 @@
 const {Pool} = require("pg");
 const fs = require("fs");
-const ENV = process.env.NODE_ENV || "development";
-const config = {};
 
 require("dotenv").config({
-    path: `${__dirname}/../.env.${ENV}`,
+    path: `${__dirname}/../.env`,
 });
 
 if (!process.env.DATABASE_NAME && !process.env.DATABASE_HOST) {
     throw new Error("DATABASE_NAME or DATABASE_HOST not set");
 }
 
-if (ENV === "production") {
-    config.connectionString = process.env.DATABASE_URL;
-    config.max = 4;
-}
 const pool = new Pool({
     user: process.env.DATABASE_USER,
     host: process.env.DATABASE_HOST,

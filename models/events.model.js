@@ -335,6 +335,15 @@ exports.insertEventUser = async (params, body, headers) => {
     // Check if invited user has permission to see the event
     await checkUserCanAccessEvent(eventId, userIdToInsert);
 
+    // Get group info
+    const eventResult = await client.query(`SELECT *
+                                            FROM events
+                                            WHERE id = $1`, [eventId]);
+    const event = eventResult.rows[0];
+
+    // Visibility 0 means public and are instantly approved (status 1)
+    // Visibility 1 means the user must be approved (status 0)
+    const minStatus = event.visibility === 0 ? 1 : 0;
     // Insert user into the event
     const query = `
         INSERT INTO event_users (event_id, user_id, status)
@@ -343,7 +352,7 @@ exports.insertEventUser = async (params, body, headers) => {
             DO NOTHING
         RETURNING *;
     `;
-    const values = [eventId, userIdToInsert, userId ? (body.status || 0) : 0];
+    const values = [eventId, userIdToInsert, userId ? (Math.max(body.status, minStatus) || minStatus) : minStatus];
 
     const res = await client.query(query, values);
     return res.rows[0];

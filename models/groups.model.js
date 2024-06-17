@@ -327,10 +327,12 @@ exports.insertGroupJoin = async (params, headers) => {
                                             WHERE id = $1`, [groupId]);
     const group = groupResult.rows[0];
 
+    // Visibility 0 means public and are instantly approved (access_level 1)
+    // Visibility 1 means the user must be approved (access_level 0)
     await client.query(`INSERT INTO user_groups (user_id, group_id, access_level)
-                        VALUES ($1, $2, 0)
+                        VALUES ($1, $2, $3)
                         ON CONFLICT (user_id, group_id)
-                            DO NOTHING`, [userId, groupId]);
+                            DO NOTHING`, [userId, groupId, group.visibility === 0 ? 1 : 0]);
 
     // Select the group owner
     const ownerResult = await client.query(`SELECT id, username, display_name, about

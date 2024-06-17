@@ -60,7 +60,7 @@ exports.postGroup = (req, res, next) => {
 };
 
 exports.patchGroup = (req, res, next) => {
-    updateGroup(req.params, req.headers)
+    updateGroup(req.params, req.body, req.headers)
         .then((group) => {
             res.status(200).send({group});
         })

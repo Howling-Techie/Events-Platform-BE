@@ -13,12 +13,12 @@ groupsRouter
     .route("/")
     .get(getGroups)
     .post(postGroup)
-    .patch(patchGroup)
     .delete(deleteGroup);
 
 groupsRouter
     .route("/:group_id")
-    .get(getGroup);
+    .get(getGroup)
+    .patch(patchGroup);
 
 groupsRouter
     .route("/:group_id/events")

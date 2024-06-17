@@ -28,6 +28,13 @@ exports.selectEvents = async (queries, headers) => {
                 const groupResult = await client.query(`SELECT *
                                                         FROM groups
                                                         WHERE id = $1`, [event.group_id]);
+                const userInEventResult = await client.query(`SELECT status, paid, amount_paid
+                                                              FROM event_users
+                                                              WHERE user_id = $1
+                                                                AND event_id = $2`, [user_id, event.id]);
+                if (userInEventResult.rows.length > 0) {
+                    event.status = userInEventResult.rows[0];
+                }
                 event.group = groupResult.rows[0];
             }
             return events;
@@ -74,12 +81,12 @@ exports.selectEvent = async (params, headers) => {
                                               WHERE id = $1`, [event.created_by]);
     // Get user status
     if (userId) {
-        const userInGroupResult = await client.query(`SELECT status, paid, amount_paid
+        const userInEventResult = await client.query(`SELECT status, paid, amount_paid
                                                       FROM event_users
                                                       WHERE user_id = $1
                                                         AND event_id = $2`, [userId, eventId]);
-        if (userInGroupResult.rows.length > 0) {
-            event.status = userInGroupResult.rows[0];
+        if (userInEventResult.rows.length > 0) {
+            event.status = userInEventResult.rows[0];
         }
     }
 
@@ -97,7 +104,16 @@ exports.insertEvent = async (body, headers) => {
             const userId = decoded.id;
 
             // Check for required fields
-            const {group_id, start_time, title, description = "", location = "", visibility = 0} = body;
+            const {
+                group_id,
+                start_time,
+                title,
+                description = "",
+                location = "",
+                visibility = 0,
+                price = 0,
+                pay_what_you_want = false
+            } = body;
             if (!group_id) {
                 return Promise.reject({status: 400, msg: "group_id is required"});
             }
@@ -121,8 +137,8 @@ exports.insertEvent = async (body, headers) => {
             // Insert event into the database
             const query = `
                 INSERT INTO events (group_id, created_by, visibility, start_time, title, description, location,
-                                    google_link)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                                    google_link, price, pay_what_you_want)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                 RETURNING *;
             `;
             const values = [
@@ -133,10 +149,16 @@ exports.insertEvent = async (body, headers) => {
                 title,
                 description,
                 location,
-                googleCalEvent.htmlLink
+                googleCalEvent.htmlLink,
+                price,
+                pay_what_you_want
             ];
 
             const res = await client.query(query, values);
+
+            await client.query(`INSERT INTO event_users (event_id, user_id, status, paid, amount_paid)
+                                VALUES ($1, $2, 3, true, $3);`, [res.rows[0].id, userId, price]);
+
             return res.rows[0];
         } catch {
             return Promise.reject({status: 401, msg: "Unauthorised"});
@@ -313,6 +335,15 @@ exports.insertEventUser = async (params, body, headers) => {
     // Check if invited user has permission to see the event
     await checkUserCanAccessEvent(eventId, userIdToInsert);
 
+    // Get group info
+    const eventResult = await client.query(`SELECT *
+                                            FROM events
+                                            WHERE id = $1`, [eventId]);
+    const event = eventResult.rows[0];
+
+    // Visibility 0 means public and are instantly approved (status 1)
+    // Visibility 1 means the user must be approved (status 0)
+    const minStatus = event.visibility === 0 ? 1 : 0;
     // Insert user into the event
     const query = `
         INSERT INTO event_users (event_id, user_id, status)
@@ -321,7 +352,7 @@ exports.insertEventUser = async (params, body, headers) => {
             DO NOTHING
         RETURNING *;
     `;
-    const values = [eventId, userIdToInsert, userId ? (body.status || 0) : 0];
+    const values = [eventId, userIdToInsert, userId ? (Math.max(body.status, minStatus) || minStatus) : minStatus];
 
     const res = await client.query(query, values);
     return res.rows[0];

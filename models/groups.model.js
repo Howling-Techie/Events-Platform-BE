@@ -10,7 +10,7 @@ exports.selectGroups = async (queries, headers) => {
         try {
             const decoded = jwt.verify(token, process.env.JWT_KEY);
             const user_id = decoded.id;
-            const results = await client.query(`SELECT g.*
+            const results = await client.query(`SELECT g.*, ug.access_level as user_access_level
                                                 FROM groups g
                                                          LEFT JOIN user_groups ug ON ug.group_id = g.id AND ug.user_id = $1
                                                 WHERE (
@@ -254,6 +254,11 @@ exports.selectGroupEvents = async (params, headers) => {
     const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
     const userId = await groupChecklist(groupId, token);
 
+    // Select the group
+    const groupResult = await client.query(`SELECT *
+                                            FROM groups
+                                            WHERE id = $1`, [groupId]);
+    const group = groupResult.rows[0];
     // Get all visible events
     if (userId) {
         const eventResults = await client.query(`SELECT e.*
@@ -261,14 +266,20 @@ exports.selectGroupEvents = async (params, headers) => {
                                                           INNER JOIN groups g on e.group_id = g.id AND g.id = $2
                                                           INNER JOIN user_groups ug on g.id = ug.group_id AND ug.user_id = $1
                                                  WHERE e.visibility <= ug.access_level`, [userId, groupId]);
-        return eventResults.rows;
+        return eventResults.rows.map(event => {
+            event.group = group;
+            return event;
+        });
     }
     // Otherwise just get the public events
     const eventResults = await client.query(`SELECT e.*
                                              FROM events e
                                                       INNER JOIN groups g on e.group_id = g.id AND g.id = $1
                                              WHERE g.visibility = 0`, [groupId]);
-    return eventResults.rows;
+    return eventResults.rows.map(event => {
+        event.group = group;
+        return event;
+    });
 };
 
 exports.deleteGroupJoin = async (params, headers) => {
@@ -316,10 +327,12 @@ exports.insertGroupJoin = async (params, headers) => {
                                             WHERE id = $1`, [groupId]);
     const group = groupResult.rows[0];
 
+    // Visibility 0 means public and are instantly approved (access_level 1)
+    // Visibility 1 means the user must be approved (access_level 0)
     await client.query(`INSERT INTO user_groups (user_id, group_id, access_level)
-                        VALUES ($1, $2, 0)
+                        VALUES ($1, $2, $3)
                         ON CONFLICT (user_id, group_id)
-                            DO NOTHING`, [userId, groupId]);
+                            DO NOTHING`, [userId, groupId, group.visibility === 0 ? 1 : 0]);
 
     // Select the group owner
     const ownerResult = await client.query(`SELECT id, username, display_name, about

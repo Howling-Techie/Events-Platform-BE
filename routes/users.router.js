@@ -1,5 +1,6 @@
 const {
-    getUsers, getUser, postUser, patchUser, deleteUser, getUserGroups, patchUserNote, postUserFollow, deleteUserFollow
+    getUsers, getUser, postUser, patchUser, deleteUser, getUserGroups, patchUserNote, postUserFollow, deleteUserFollow,
+    getUserEvents
 } = require("../controllers/users.controller");
 
 const usersRouter = require("express").Router();
@@ -18,6 +19,10 @@ usersRouter
 usersRouter
     .route("/:username/groups")
     .get(getUserGroups);
+
+usersRouter
+    .route("/:username/events")
+    .get(getUserEvents);
 
 usersRouter
     .route("/:username/note")

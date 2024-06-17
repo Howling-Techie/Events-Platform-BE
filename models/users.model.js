@@ -213,6 +213,62 @@ exports.selectUserGroups = async (params, headers) => {
     }
 };
 
+exports.selectUserEvents = async (params, headers) => {
+    const tokenHeader = headers["authorization"];
+    const token = tokenHeader ? tokenHeader.split(" ")[1] : null;
+    if (token) {
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_KEY);
+            const user_id = decoded.id;
+            const results = await client.query(`SELECT e.*
+                                                FROM events e
+                                                         INNER JOIN event_users eu1 ON eu1.event_id = e.id
+                                                         INNER JOIN users u1 ON eu1.user_id = u1.id AND u1.username = $1
+                                                         LEFT JOIN event_users eu2 ON eu2.event_id = e.id AND eu2.user_id = $2
+                                                WHERE (
+                                                          (e.visibility = 0)
+                                                              OR
+                                                          (eu2.user_id = $2)
+                                                          );`, [params.username, user_id]);
+            const events = results.rows;
+            for (const event of events) {
+                const groupResult = await client.query(`SELECT *
+                                                        FROM groups
+                                                        WHERE id = $1`, [event.group_id]);
+                const userInEventResult = await client.query(`SELECT status, paid, amount_paid
+                                                              FROM event_users
+                                                              WHERE user_id = $1
+                                                                AND event_id = $2`, [user_id, event.id]);
+                if (userInEventResult.rows.length > 0) {
+                    event.status = userInEventResult.rows[0];
+                }
+                event.group = groupResult.rows[0];
+            }
+            return events;
+
+        } catch {
+            return Promise.reject({status: 401, msg: "Unauthorised"});
+        }
+    } else {
+        const results = await client.query(`SELECT g.*
+                                            FROM groups g
+                                                     INNER JOIN user_groups ug1 ON ug1.group_id = g.id
+                                                     INNER JOIN users u1 ON ug1.user_id = u1.id AND u1.username = $1
+                                            WHERE (
+                                                      (g.visibility = 0)
+                                                      );`, [params.username]);
+
+        const events = results.rows;
+        for (const event of events) {
+            const groupResult = await client.query(`SELECT *
+                                                    FROM groups
+                                                    WHERE id = $1`, [event.group_id]);
+            event.group = groupResult.rows[0];
+        }
+        return events;
+    }
+};
+
 exports.updateUserNote = async (params, body, headers) => {
     const tokenHeader = headers["authorization"];
     const {username} = params;

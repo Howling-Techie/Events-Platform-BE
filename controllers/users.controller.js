@@ -7,7 +7,7 @@ const {
     selectUserGroups,
     insertUserFollow,
     deleteUserFollow,
-    updateUserNote,
+    updateUserNote, selectUserEvents,
 } = require("../models/users.model");
 
 exports.getUsers = (req, res, next) => {
@@ -64,6 +64,16 @@ exports.getUserGroups = (req, res, next) => {
     selectUserGroups(req.params, req.headers)
         .then((groups) => {
             res.status(200).send({groups});
+        })
+        .catch((error) => {
+            next(error);
+        });
+};
+
+exports.getUserEvents = (req, res, next) => {
+    selectUserEvents(req.params, req.headers)
+        .then((events) => {
+            res.status(200).send({events});
         })
         .catch((error) => {
             next(error);
